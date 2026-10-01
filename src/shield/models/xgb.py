@@ -62,6 +62,7 @@ def train_xgboost(paths: Paths, dataset: str, task: str, seed: int, cfg: dict, u
     clf.save_model(out / "model.json")
     np.save(out / "confusion.npy", confusion(te.y, logits, data.n_classes))
     metrics = {"dataset": dataset, "task": task, "seed": seed, "train_rows": int(len(idx)),
+               "classes_present": present,
                "best_iteration": int(getattr(clf, "best_iteration", cfg["n_estimators"])),
                "train_seconds": round(train_seconds, 1),
                "test": classification_metrics(te.y, logits, data.n_classes, data.classes, full=True),
@@ -73,3 +74,18 @@ def train_xgboost(paths: Paths, dataset: str, task: str, seed: int, cfg: dict, u
 
 def gpu_available() -> bool:
     return torch.cuda.is_available()
+
+
+def xgb_logits(run_dir, X: np.ndarray, n_classes: int, chunk: int = 1_000_000) -> np.ndarray:
+    """Log-probabilities over all n_classes from a saved XGBoost run (absent classes get ~log 0)."""
+    m = load_json(run_dir / "metrics.json")
+    present = np.asarray(m["classes_present"])
+    booster = xgb.Booster()
+    booster.load_model(run_dir / "model.json")
+    best = m.get("best_iteration")
+    proba = np.zeros((len(X), n_classes))
+    for i in range(0, len(X), chunk):
+        p = booster.predict(xgb.DMatrix(np.asarray(X[i:i + chunk])),
+                            iteration_range=(0, best + 1) if best is not None else (0, 0))
+        proba[i:i + chunk][:, present] = np.stack([1 - p, p], 1) if len(present) == 2 else p
+    return np.log(np.clip(proba, 1e-12, 1.0))

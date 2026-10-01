@@ -4,7 +4,7 @@
 
 The project has two coupled parts:
 
-1. **Detection.** A residual-MLP teacher is trained on CICIoT2023 and Bot-IoT and explained with SHAP. A tiny student (about 3–5k parameters) is then distilled on the SHAP-selected features, using an extra attribution-alignment loss.
+1. **Detection.** A residual-MLP teacher is explained with SHAP. A tiny student (about 3–5k parameters) is then distilled on the SHAP-selected features, using an attribution-alignment loss. It's evaluated on three datasets under a leakage-free protocol, and across networks (CICIoT2023 ⇄ CICIoMT2024).
 2. **Placement.** A hybrid Elephant Herding + Ant Colony optimiser places SDN security controllers so that latency stays low under failures. The student's measured throughput sets each controller's capacity, which links the two parts.
 
 ## Setup (GPU desktop)
@@ -15,96 +15,94 @@ uv python install 3.12
 uv sync --extra cu128          # CUDA build of PyTorch. On a machine without a GPU: uv sync --extra cpu
 ```
 
-Copy the two dataset zips to the desktop and set their paths in [configs/paths.yaml](configs/paths.yaml):
+Set the dataset paths in [configs/paths.yaml](configs/paths.yaml). Leave all three zips zipped; the code reads them directly.
 
 | key | file | contents |
 |---|---|---|
-| `ciciot_zip` | `archive (5).zip` | CICIoT2023, `CICIOT23/{train,validation,test}/*.csv`, about 8M rows, 46 features, 34 classes |
-| `botiot_zip` | `archive (6).zip` | Bot-IoT full, `data_1..74.csv`, about 73M rows |
+| `ciciot_zip` | `archive (5).zip` | CICIoT2023, `CICIOT23/{train,validation,test}/*.csv`, ~8M rows, 46 features, 34 classes |
+| `ciciomt_zip` | `ciciomt2024.zip` (GitHub release `datasets-v1`) | CICIoMT2024 Wi-Fi/MQTT attacks, `CICIoMT2024/{train,test}/*.pcap.csv`, 45 features, 18 attacks + benign; the train/test split is by capture |
+| `botiot_zip` | `archive (6).zip` | Bot-IoT full, `data_1..74.csv`, ~73M rows |
+
+## Datasets and protocol ([configs/datasets.yaml](configs/datasets.yaml))
+
+| dataset | group | built from | what it is |
+|---|---|---|---|
+| `ciciot`, `ciciomt`, `botiot` | main | each zip | **Strict protocol** (main results). Leaky features removed: `IAT` from both CIC datasets, since it encodes capture time, and `seq` from Bot-IoT, since it encodes record order. Exact duplicate feature vectors are removed across splits, so no test row also appears in train. |
+| `xciciot`, `xciciomt` | cross | both CIC zips | The 43 features and 5 classes (Benign, DDoS, DoS, Recon, Spoofing) both CIC datasets share, used for cross-dataset transfer |
+| `ciciot_std`, `ciciomt_std`, `botiot_std` | standard | each zip | Original feature set, seed 0 only. Used only to measure how much the leaky features inflate scores, and for the leakage audit. |
+
+Tasks:
+- CICIoT2023: binary / 8 families / 34 classes
+- CICIoMT2024: binary / 6 categories / 19 attacks
+- Bot-IoT: binary / 5 categories
+- Shared datasets: binary / shared5
 
 ## Running
 
-Every script is resumable: finished runs are skipped, and `--force` recomputes them. `--smoke` runs on tiny data and writes to separate roots (`data_smoke/`, `outputs_smoke/`).
+Every script is resumable: finished runs are skipped, and `--force` recomputes them. `--smoke` runs on tiny data and writes to separate roots (`data_smoke/`, `outputs_smoke/`). `--dataset` accepts `all`, `main`, `cross`, `standard`, a dataset name, or a comma-separated list.
 
 ```powershell
-uv run python scripts/run_all.py --smoke     # about 5-15 min end to end; checks every expected output exists
+uv run python scripts/run_all.py --smoke     # end-to-end on tiny data; checks every expected output exists
 uv run python scripts/run_all.py             # the full pipeline
 ```
 
-To run the stages one at a time (times are estimates for an i7-12700F + RTX 3060):
-
-| step | command | est. time |
+| step | command | what it does |
 |---|---|---|
-| ingest zips to Parquet | `uv run python scripts/01_ingest.py` | ~30-60 min |
-| clean, de-duplicate, split, scale | `uv run python scripts/02_preprocess.py` | ~20-30 min |
-| teachers (5 tasks x 5 seeds) | `uv run python scripts/03_train_teacher.py` | ~10-15 h |
-| XGBoost reference | `uv run python scripts/03b_xgboost.py` | ~2-4 h |
-| SHAP + stability | `uv run python scripts/04_shap.py` | ~1-2 h |
-| teacher cache for KD | `uv run python scripts/05_cache_teacher.py` | ~15 min |
-| distillation ablations | `uv run python scripts/05_distill.py` | ~8-15 h |
-| F1-vs-k sweep | `uv run python scripts/05_distill.py --k-sweep` | ~2-4 h |
-| latency / size / FLOPs | `uv run python scripts/06_latency.py` | ~15 min |
-| placement benchmark | `uv run python scripts/07_placement.py` | ~6-20 h (CPU, 16 processes) |
-| coupling experiment | `uv run python scripts/07b_coupled.py` | ~1-2 h |
-| tables + figures | `uv run python scripts/08_make_figures.py` | ~2 min |
+| ingest | `scripts/01_ingest.py` | zips → Parquet |
+| preprocess | `scripts/02_preprocess.py` | strict/standard/shared datasets, cross-split de-dup, scaling fitted on train |
+| leakage audit | `scripts/02b_leakage_audit.py` | macro-F1 of every feature alone, on the standard datasets |
+| teachers | `scripts/03_train_teacher.py` | residual MLP, 5 seeds (main), 3 (cross), 1 (standard) |
+| XGBoost | `scripts/03b_xgboost.py` | strong tabular reference |
+| tiny baselines | `scripts/03c_baselines.py` | depth-10 decision tree + logistic regression |
+| SHAP | `scripts/04_shap.py` | true-class GradientExplainer, ranking stability |
+| teacher cache | `scripts/05_cache_teacher.py` | fp16 logits + gradient × input for KD |
+| distillation | `scripts/05_distill.py` | 7 ablation variants + int8; `--k-sweep` for F1 vs k |
+| latency | `scripts/06_latency.py` | single-core CPU latency/throughput, size, FLOPs |
+| placement | `scripts/07_placement.py` | 12 algorithms × topologies × (k, ρ) × 30 seeds + resilience |
+| coupling | `scripts/07b_coupled.py` | controllers needed per detector |
+| cross-dataset | `scripts/09_cross_dataset.py` | zero-shot (source vs target normalisation), few-shot curve, never-seen attacks, SHAP agreement |
+| paper | `scripts/08_make_figures.py` | all tables (CSV + LaTeX) and figures (PDF + PNG) |
 
-`07_placement.py` only uses the CPU. You can start it while steps 3–5 use the GPU; it then uses the default detector throughput (`default_mu_flow`). To use the measured student throughput instead, run it after `06_latency.py`.
-
-**Quick pass first.** Run `03`–`05` with `--seeds 0` and `07` with a reduced grid (edit `configs/placement.yaml`) to check that the method works before committing to the full grid.
-
-Useful flags: `--dataset ciciot|botiot`, `--task binary`, `--seeds 0 1`, `--variants shield kd_all`, `--jobs 3`, `--cpu`, `--workers 16`, and `07_placement.py --analyse-only`.
+**Run a quick pass first.** Run detection with `--seeds 0` and placement with a reduced grid, to check the method before the full grid.
 
 ## Outputs
 
 ```
 outputs/
-  data_report_<ds>.json                     class counts per split, de-dup statistics
-  teacher/<ds>_<task>_resmlp_s<seed>/        model.pt, metrics.json, confusion.npy
-      shap/                                  importance.json (ranking, k95), shap_values.npy, plots
-      cache/                                 fp16 teacher logits + grad x input (KD teacher only)
-  xgboost/<ds>_<task>_s<seed>/
-  kd/<ds>_<task>/<variant>_s<seed>/          student.pt, student_int8.pt, metrics.json (incl. int8, fidelity)
-  latency/latency.json                       single-core CPU latency/throughput, size, FLOPs, GPU throughput
-  placement/                                 runs.jsonl/parquet, optimum.jsonl, summary.csv, wilcoxon.csv, friedman.json
-  coupled/                                   coupled_all.csv, min_controllers.csv
+  data_report_<dataset>.json                 class counts, de-dup statistics, dropped features
+  leakage/<dataset>_<task>.csv               single-feature audit
+  teacher/<ds>_<task>_resmlp_s<seed>/        model.pt, metrics.json, confusion.npy, shap/, cache/
+  xgboost/, baselines/                       reference models
+  kd/<ds>_<task>/<variant>_s<seed>/          student.pt, student_int8.pt, metrics.json (int8, SHAP fidelity)
+  latency/latency.json
+  placement/                                 runs, optimum, summary, wilcoxon, friedman (+ Nemenyi CD)
+  coupled/                                   controllers needed per detector
+  cross/                                     per-block JSON + zero-shot / few-shot / unseen summaries
   paper/tables/*.csv|tex, paper/figures/*.pdf|png
 ```
 
 ## Method notes
 
-**Data**
-- CICIoT2023 keeps its provided split and has three label granularities: binary, 8 families and 34 classes.
-- Bot-IoT drops identity and time columns (`pkSeqID`, `stime`, `ltime`, addresses, MACs, OUIs, ports) and one-hot encodes `proto`, `flgs` and `state`.
-- Exact duplicate feature rows are removed globally by hash. Hashes with conflicting labels are dropped entirely.
-- Bot-IoT uses a 70/15/15 split stratified by subcategory, with binary and 5-category tasks.
-- Both datasets use median imputation, a signed-log transform and standardisation, all fitted on train only.
+**Leakage controls.** These follow [Arp et al., USENIX Security '22](https://www.usenix.org/system/files/sec22summer_arp.pdf) and recent IoT-IDS shortcut audits:
+- identity and time columns are removed;
+- known artifact features are removed (strict protocol);
+- duplicates are removed across splits;
+- scalers are fitted on train only;
+- a single-feature leakage audit is reported;
+- the inflation from the leaky features is reported next to the honest numbers.
 
-**Teacher.** A residual MLP (about 1.2M parameters, 4×384) trained with AdamW, warmup + cosine schedule and bf16 autocast, early-stopped on validation macro-F1. Bot-IoT uses √-balanced sampling with 8M samples per epoch.
+**Teacher and SHAP.** The teacher is a residual MLP (4×384). SHAP uses `GradientExplainer` and explains only each row's true-class output. Global importance is the mean |SHAP|.
 
-**SHAP.** `GradientExplainer` with 1,000 stratified background rows and 5,000 explained test rows. Global importance is the mean |SHAP| for each row's true class.
+**SHIELD loss.** `α·CE + β·T²·KL(teacher‖student) + γ·(1 − cos(w⊙A_s, w⊙A_t[S]))`, where `A` is the true-class gradient × input, `S` is the SHAP top-k feature set, and `w` is the normalised SHAP importance.
 
-**SHIELD loss.** `α·CE + β·T²·KL(teacher‖student) + γ·(1 − cos(w⊙A_s, w⊙A_t[S]))`, where `A` is the true-class gradient × input. `S` is the SHAP top-k feature set, and `w` is the normalised global SHAP importance on `S`.
+**Detection ablations.** `scratch_all`, `kd_all`, `kd_shap`, `shield`, `kd_random`, `kd_mi`, `kd_variance`, plus int8. Variants are compared with a Friedman test and a Nemenyi critical-difference diagram over the dataset/task/seed blocks.
 
-**Ablations.** `scratch_all`, `kd_all`, `kd_shap`, `shield`, `kd_random`, `kd_mi` and `kd_variance`, plus int8 dynamic quantisation of every student.
+**Cross-dataset (CICIoT2023 ⇄ CICIoMT2024).** Both use the same CIC feature extractor; Bot-IoT is excluded because its flow exporter differs. Each direction measures:
+- zero-shot transfer, with source-statistics vs unlabelled target-statistics normalisation;
+- few-shot fine-tuning at 0.1/1/5/10% labelled target data, against the same student trained from scratch;
+- whether never-seen attack families (MQTT; Mirai/Web/BruteForce) are still flagged as attacks.
 
-**Placement objective.** Capacitated greedy-regret assignment with a backup controller for every switch. The objective is a weighted sum of:
-- average latency (propagation plus M/M/1 sojourn),
-- maximum latency,
-- inter-controller latency,
-- load imbalance,
-- the worst mean latency over single-controller failures,
-
-each normalised by its mean over random placements, plus a penalty for overload in normal and failure states. The core runs in numba.
-
-**Hybrid EHO–ACO.** EHO clans do the exploitation. ACO ants (MAX–MIN pheromone, demand-closeness heuristic, coverage mask) replace EHO's random separating operator. Matriarchs and the global best deposit pheromone, and the global best periodically gets a 1-swap local search.
-
-**Baselines.** All use the same evaluation budget: GA, set-based PSO, SA, pure EHO, pure ACO, random search, greedy k-median, greedy k-center, weighted k-means, PageRank, and a capacitated k-median ILP solved with HiGHS. For small instances, brute force gives the true optimum.
-
-**Resilience.** Evaluated after optimisation:
-- all single-controller and sampled double-controller failures;
-- random and betweenness-targeted link and node failures at 5–20%.
-
-**Coupling.** Demand is fixed relative to the teacher's capacity. For each detector (teacher, SHIELD student, int8 student), the experiment finds the smallest k that keeps at least 95% of switches within the SLA, with no overload, also under the worst single failure.
+**Placement.** Capacitated greedy-regret assignment with backup controllers. The objective is a weighted sum of average and maximum latency (propagation + M/M/1), inter-controller latency, load imbalance and worst single-failure latency. Hybrid EHO–ACO is compared with GA, PSO, SA, pure EHO and pure ACO, random search, k-median, k-center, k-means, PageRank, a capacitated k-median ILP (HiGHS), and the brute-force optimum. Statistics: 30 runs, Wilcoxon + Holm, Friedman + Nemenyi critical difference. Resilience covers controller, link and node failures.
 
 ## Tests
 

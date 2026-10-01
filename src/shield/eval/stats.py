@@ -24,7 +24,8 @@ def summarise(df: pd.DataFrame, optimum: pd.DataFrame | None = None) -> pd.DataF
     g = df.groupby(INSTANCE + ["algorithm"])
     out = g.agg(F_mean=("F", "mean"), F_std=("F", "std"), F_median=("F", "median"), F_min=("F", "min"),
                 avg_ms=("avg", "mean"), fail_ms=("fail", "mean"), pct_sla=("pct_sla", "mean"),
-                fail_pct_sla=("fail_pct_sla", "mean"), seconds=("seconds", "mean"), runs=("F", "size")).reset_index()
+                fail_pct_sla=("fail_pct_sla", "mean"), seconds=("seconds", "mean"), runs=("F", "size"),
+                n=("n", "first")).reset_index()
     if optimum is not None and len(optimum):
         out = out.merge(optimum[INSTANCE + ["F_opt"]], on=INSTANCE, how="left")
         out["gap_pct"] = 100 * (out["F_mean"] - out["F_opt"]) / out["F_opt"]
@@ -62,10 +63,27 @@ def friedman_ranks(summary: pd.DataFrame, algorithms: list[str]) -> tuple[pd.Ser
     """Average rank (1 = best mean F) across instances, and the Friedman test p-value."""
     piv = summary.pivot_table(index=INSTANCE, columns="algorithm", values="F_mean")
     piv = piv[[a for a in algorithms if a in piv.columns]].dropna()
-    if piv.empty:
+    return ranks_and_friedman(piv, higher_is_better=False)
+
+
+# Nemenyi critical values q_0.05 (Demšar 2006, Table 5), by number of compared methods k.
+NEMENYI_Q05 = {2: 1.960, 3: 2.343, 4: 2.569, 5: 2.728, 6: 2.850, 7: 2.949, 8: 3.031, 9: 3.102, 10: 3.164,
+               11: 3.219, 12: 3.268, 13: 3.313, 14: 3.354, 15: 3.391}
+
+
+def ranks_and_friedman(table: pd.DataFrame, higher_is_better: bool) -> tuple[pd.Series, float | None]:
+    """table: rows = blocks (datasets/instances), columns = methods. Average rank (1 = best) + Friedman p."""
+    table = table.dropna()
+    if table.empty:
         return pd.Series(dtype=float), None
-    ranks = piv.rank(axis=1).mean().sort_values()
+    ranks = table.rank(axis=1, ascending=not higher_is_better).mean().sort_values()
     p = None
-    if piv.shape[1] >= 3 and piv.shape[0] >= 2:
-        p = float(friedmanchisquare(*[piv[c] for c in piv.columns]).pvalue)
+    if table.shape[1] >= 3 and table.shape[0] >= 2:
+        p = float(friedmanchisquare(*[table[c] for c in table.columns]).pvalue)
     return ranks, p
+
+
+def nemenyi_cd(k: int, n_blocks: int) -> float | None:
+    """Critical difference of average ranks at alpha = 0.05 (two methods differ if ranks differ by >= CD)."""
+    q = NEMENYI_Q05.get(k)
+    return None if q is None or n_blocks < 1 else q * np.sqrt(k * (k + 1) / (6.0 * n_blocks))

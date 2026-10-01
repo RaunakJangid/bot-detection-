@@ -22,12 +22,34 @@ def _csv_bytes(df: pd.DataFrame) -> bytes:
 def ciciot_zip(tmp_path):
     rng = np.random.default_rng(0)
     path = tmp_path / "cic.zip"
+    frames = {}
+    for split, n in (("train", 400), ("validation", 120), ("test", 120)):
+        df = pd.DataFrame(rng.lognormal(2, 2, (n, len(CIC_FEATURES))), columns=CIC_FEATURES)
+        df.loc[0, "Rate"] = np.inf
+        df["label"] = [CIC_LABELS[i % len(CIC_LABELS)] for i in range(n)]
+        frames[split] = df
+    # Plant a train row in test (same features + label): cross-split de-dup must remove it from test.
+    frames["test"].loc[2] = frames["train"].loc[2]
     with zipfile.ZipFile(path, "w") as zf:
-        for split, n in (("train", 400), ("validation", 120), ("test", 120)):
-            df = pd.DataFrame(rng.lognormal(2, 2, (n, len(CIC_FEATURES))), columns=CIC_FEATURES)
-            df.loc[0, "Rate"] = np.inf
-            df["label"] = [CIC_LABELS[i % len(CIC_LABELS)] for i in range(n)]
+        for split, df in frames.items():
             zf.writestr(f"CICIOT23/{split}/{split}.csv", _csv_bytes(df))
+    return path
+
+
+CIOMT_FEATURES = ["Header_Length", "Protocol Type", "Rate", "Tot sum", "IAT", "IGMP"]
+CIOMT_FILES = ["Benign", "TCP_IP-DDoS-ICMP1", "TCP_IP-DDoS-ICMP2", "TCP_IP-DoS-SYN", "MQTT-DDoS-Connect_Flood",
+               "Recon-Port_Scan", "ARP_Spoofing"]
+
+
+@pytest.fixture
+def ciciomt_zip(tmp_path):
+    rng = np.random.default_rng(2)
+    path = tmp_path / "ciomt.zip"
+    with zipfile.ZipFile(path, "w") as zf:
+        for split, n in (("train", 60), ("test", 20)):
+            for name in CIOMT_FILES:
+                df = pd.DataFrame(rng.lognormal(2, 2, (n, len(CIOMT_FEATURES))), columns=CIOMT_FEATURES)
+                zf.writestr(f"CICIoMT2024/{split}/{name}_{split}.pcap.csv", _csv_bytes(df))
     return path
 
 
@@ -63,4 +85,4 @@ def botiot_zip(tmp_path):
 @pytest.fixture
 def data_cfg():
     return {"seed": 0, "transform": "signed_log", "botiot_split": [0.7, 0.15, 0.15], "min_category_count": 5,
-            "max_per_class": None}
+            "max_per_class": None, "ciciomt_val_frac": 0.15}

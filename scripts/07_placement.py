@@ -11,7 +11,7 @@ import pandas as pd
 
 from shield.cli import parser, paths_for
 from shield.eval.resilience import betweenness, resilience_report
-from shield.eval.stats import friedman_ranks, summarise, wilcoxon_vs
+from shield.eval.stats import friedman_ranks, nemenyi_cd, summarise, wilcoxon_vs
 from shield.placement.exact import brute_force
 from shield.placement.runner import (DETERMINISTIC, STOCHASTIC, build_problem, compress_history,
                                      controller_mu, detector_mu_flow, run_algorithm, topology_and_latency)
@@ -102,7 +102,9 @@ def analyse(out_dir, cfg) -> None:
     others = [a for a in cfg["algorithms"] if a in STOCHASTIC and a != "hybrid_eho_aco"]
     wilcoxon_vs(df, "hybrid_eho_aco", others).to_csv(out_dir / "wilcoxon.csv", index=False)
     ranks, p = friedman_ranks(summary, cfg["algorithms"])
-    save_json({"average_rank": ranks.to_dict(), "friedman_p": p}, out_dir / "friedman.json")
+    n_inst = summary.groupby(["topology", "k", "rho"]).ngroups
+    save_json({"average_rank": ranks.to_dict(), "friedman_p": p, "instances": n_inst,
+               "nemenyi_cd": nemenyi_cd(len(ranks), n_inst)}, out_dir / "friedman.json")
     log.info("Average ranks (lower is better):\n%s", ranks.to_string())
 
 

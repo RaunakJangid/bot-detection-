@@ -1,16 +1,16 @@
-"""Train the XGBoost reference model for every (dataset, task)."""
+"""Train the XGBoost reference model for every (dataset, task) in the `xgboost` stage."""
 
-from shield.cli import parser, paths_for, selected_datasets, tasks_for
+from shield.cli import paths_for, parser, registry, selected_datasets
 from shield.models.xgb import gpu_available, train_xgboost
 from shield.utils.config import load_config
 
 
 def main():
     args = parser(__doc__).parse_args()
-    paths, cfg = paths_for(args), load_config("teacher", args.smoke)
+    paths, cfg, reg = paths_for(args), load_config("teacher", args.smoke), registry(args)
     use_gpu = gpu_available() and not args.cpu
-    for ds in selected_datasets(args):
-        for task in tasks_for(cfg["tasks"], ds, args.task):
+    for ds in selected_datasets(args, stage="xgboost"):
+        for task in reg.tasks(ds, args.task):
             for seed in cfg["xgboost"]["seeds"]:
                 train_xgboost(paths, ds, task, seed, cfg["xgboost"], use_gpu, args.force)
 

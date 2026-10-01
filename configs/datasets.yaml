@@ -1,0 +1,37 @@
+# Every dataset the pipeline builds. One raw source can yield several processed datasets:
+#   protocol: strict    -> the leaky features listed below are removed (main results)
+#   protocol: standard  -> original feature set, kept only to measure how much the leak inflates scores
+#   shared: true        -> restricted to the features and classes CICIoT2023 and CICIoMT2024 share (cross-dataset)
+# Optional per-dataset `seeds` / `variants` override teacher.yaml / kd.yaml (default: all of them).
+
+leaky_features:
+  ciciot: [IAT]       # encodes capture time, not packet timing (59% macro-F1 alone over 34 classes)
+  ciciomt: [IAT]      # same CIC feature extractor
+  botiot: [seq]       # Argus record sequence number (file order / recording schedule)
+
+datasets:
+  ciciot:      {source: ciciot,  protocol: strict, group: main, tasks: [binary, family, class34]}
+  ciciomt:     {source: ciciomt, protocol: strict, group: main, tasks: [binary, category, attack]}
+  botiot:      {source: botiot,  protocol: strict, group: main, tasks: [binary, category]}
+  xciciot:     {source: ciciot,  protocol: strict, group: cross, shared: true, tasks: [binary, shared5],
+                seeds: [0, 1, 2], variants: [scratch_all, kd_all, kd_shap, shield]}
+  xciciomt:    {source: ciciomt, protocol: strict, group: cross, shared: true, tasks: [binary, shared5],
+                seeds: [0, 1, 2], variants: [scratch_all, kd_all, kd_shap, shield]}
+  ciciot_std:  {source: ciciot,  protocol: standard, group: standard, tasks: [family, class34],
+                seeds: [0], variants: [shield]}
+  ciciomt_std: {source: ciciomt, protocol: standard, group: standard, tasks: [category, attack],
+                seeds: [0], variants: [shield]}
+  botiot_std:  {source: botiot,  protocol: standard, group: standard, tasks: [category],
+                seeds: [0], variants: [shield]}
+
+# Which groups the optional stages run on.
+stages:
+  xgboost: [main, cross]
+  baselines: [main, cross]
+  k_sweep: [main]
+  latency: [main]
+
+smoke:
+  datasets:
+    xciciot: {seeds: [0]}
+    xciciomt: {seeds: [0]}

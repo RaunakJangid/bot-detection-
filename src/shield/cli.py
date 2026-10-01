@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 
+from shield.data.registry import Registry
 from shield.utils.config import Paths
 
 
@@ -13,18 +14,20 @@ def parser(description: str, datasets: bool = True) -> argparse.ArgumentParser:
     p.add_argument("--cpu", action="store_true", help="run on CPU even if a GPU is present")
     p.add_argument("--force", action="store_true", help="recompute even if outputs exist")
     if datasets:
-        p.add_argument("--dataset", choices=["all", "ciciot", "botiot"], default="all")
+        p.add_argument("--dataset", default="all",
+                       help="all | main | cross | standard | a dataset name (configs/datasets.yaml) | comma list")
         p.add_argument("--task", default=None, help="restrict to one task (e.g. binary)")
     return p
 
 
-def selected_datasets(args) -> list[str]:
-    return ["ciciot", "botiot"] if args.dataset == "all" else [args.dataset]
+def registry(args) -> Registry:
+    return Registry(smoke=args.smoke)
 
 
-def tasks_for(cfg_tasks: dict, dataset: str, only: str | None) -> list[str]:
-    tasks = cfg_tasks[dataset]
-    return [t for t in tasks if only is None or t == only]
+def selected_datasets(args, stage: str | None = None) -> list[str]:
+    reg = registry(args)
+    names = reg.resolve(args.dataset)
+    return reg.for_stage(stage, names) if stage else names
 
 
 def paths_for(args) -> Paths:

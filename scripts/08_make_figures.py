@@ -3,24 +3,25 @@
 import numpy as np
 import pandas as pd
 
-from shield.cli import parser, paths_for, selected_datasets, tasks_for
+from shield.cli import parser, paths_for, registry, selected_datasets
 from shield.eval import plots
-from shield.eval.tables import detection_table, k_sweep_table, save_table
+from shield.eval.stats import nemenyi_cd, ranks_and_friedman
+from shield.eval.tables import detection_table, inflation_table, k_sweep_table, kd_rank_table, save_table
 from shield.utils.config import load_config
-from shield.utils.io import load_json, read_jsonl
+from shield.utils.io import load_json, read_jsonl, save_json
 from shield.utils.logging import get_logger
 
 log = get_logger("figures")
 
 
-def detection(paths, out, args):
+def detection(paths, out, args, reg):
     tcfg, kcfg = load_config("teacher", args.smoke), load_config("kd", args.smoke)
     lat_file = paths.outputs / "latency" / "latency.json"
     lat = load_json(lat_file) if lat_file.exists() else {}
     for ds in selected_datasets(args):
-        for task in tasks_for(tcfg["tasks"], ds, args.task):
+        for task in reg.tasks(ds, args.task):
             key = f"{ds}_{task}"
-            df = detection_table(paths, ds, task, tcfg["model"], list(kcfg["variants"]))
+            df = detection_table(paths, ds, task, tcfg["model"], reg.variants(ds, list(kcfg["variants"])))
             if df.empty:
                 continue
             save_table(df, out / "tables" / f"detection_{key}", f"Detection results, {key}")
@@ -43,6 +44,30 @@ def detection(paths, out, args):
                 save_table(ks, out / "tables" / f"k_sweep_{key}", f"F1 vs k, {key}")
                 plots.f1_vs_k(ks, out / "figures" / f"f1_vs_k_{key}", key, teacher_f1)
             log.info("detection %s: %d rows", key, len(df))
+
+    # Critical-difference diagram of the KD ablation over every (main dataset, task, seed) block.
+    main_tasks = [(ds, t) for ds in reg.resolve("main") for t in reg.tasks(ds)]
+    table = kd_rank_table(paths, main_tasks, list(kcfg["variants"]))
+    if not table.empty:
+        table = table.dropna(axis=1, thresh=max(1, int(0.8 * len(table)))).dropna()
+        ranks, p = ranks_and_friedman(table, higher_is_better=True)
+        cd = nemenyi_cd(len(ranks), len(table))
+        save_json({"average_rank": ranks.to_dict(), "friedman_p": p, "blocks": len(table), "nemenyi_cd": cd},
+                  out / "tables" / "kd_ablation_ranks.json")
+        plots.cd_diagram(ranks, cd, out / "figures" / "cd_kd_ablation",
+                         f"KD ablation, {len(table)} dataset/task/seed blocks (Friedman p={p:.2g})" if p else "KD ablation")
+
+
+def leakage(paths, out, reg):
+    pairs = [(n.removesuffix("_std"), n, t) for n in reg.resolve("standard") for t in reg.tasks(n)]
+    inf = inflation_table(paths, pairs, load_config("teacher").get("model", "resmlp"))
+    if not inf.empty:
+        save_table(inf, out / "tables" / "leakage_inflation", "Macro-F1 with leaky features (standard) vs without (strict)")
+        plots.inflation_bars(inf, out / "figures" / "leakage_inflation")
+    ldir = paths.outputs / "leakage"
+    for f in sorted(ldir.glob("*.csv")):
+        save_table(pd.read_csv(f).head(15), out / "tables" / f"leakage_audit_{f.stem}",
+                   f"Top single-feature macro-F1, {f.stem}")
 
 
 def placement(paths, out, args):
@@ -67,6 +92,11 @@ def placement(paths, out, args):
             agg = w.groupby("vs").agg(instances=("p", "size"), significant=("p_holm", lambda p: int((p < 0.05).sum())),
                                       wins=("wins", "sum"), ties=("ties", "sum"), losses=("losses", "sum")).reset_index()
             save_table(agg, out / "tables" / "placement_wilcoxon", "Hybrid EHO-ACO vs baselines (Wilcoxon, Holm)")
+    if (pdir / "friedman.json").exists():
+        fr = load_json(pdir / "friedman.json")
+        plots.cd_diagram(pd.Series(fr["average_rank"]), fr.get("nemenyi_cd"), out / "figures" / "cd_placement",
+                         f"Placement algorithms, {fr.get('instances')} instances")
+    plots.scalability(summary, out / "figures" / "placement_scalability")
     rho = pcfg["rho_default"]
     plots.objective_vs_k(summary, rho, out / "figures")
     k_mid = pcfg["rho_sweep_k"] or pcfg["k_values"][len(pcfg["k_values"]) // 2]
@@ -80,7 +110,7 @@ def placement(paths, out, args):
     save_table(res, out / "tables" / "placement_resilience", f"Resilience metrics, k={k_mid}")
 
 
-def coupled(paths, out, args):
+def coupled(paths, out):
     cdir = paths.outputs / "coupled"
     if not (cdir / "min_controllers.csv").exists():
         return
@@ -90,13 +120,36 @@ def coupled(paths, out, args):
     plots.coupled_bars(mink, out / "figures" / "coupled_min_controllers", load_json(cdir / "coupled_meta.json")["k_max"])
 
 
+def cross(paths, out):
+    cdir = paths.outputs / "cross"
+    if not (cdir / "zero_shot_runs.csv").exists():
+        return
+    zs = pd.read_csv(cdir / "zero_shot_runs.csv")
+    tab = (zs.groupby(["source", "target", "task", "model", "norm"])
+             .agg(in_domain=("in_domain_macro_f1", "mean"), zero_shot=("macro_f1", "mean"),
+                  zero_shot_std=("macro_f1", "std"), oracle=("oracle_macro_f1", "mean")).reset_index())
+    tab["drop_points"] = 100 * (tab["in_domain"] - tab["zero_shot"])
+    save_table(tab, out / "tables" / "cross_zero_shot", "Cross-dataset zero-shot macro-F1")
+    if (cdir / "fewshot_runs.csv").exists():
+        fs = pd.read_csv(cdir / "fewshot_runs.csv")
+        save_table(fs.groupby(["source", "target", "task", "model", "kind", "fraction"])["macro_f1"]
+                   .agg(["mean", "std"]).reset_index(), out / "tables" / "cross_fewshot", "Few-shot target macro-F1")
+        plots.fewshot_curves(fs, zs, out / "figures")
+    if (cdir / "unseen_runs.csv").exists():
+        un = pd.read_csv(cdir / "unseen_runs.csv")
+        save_table(un.groupby(["source", "target", "model", "norm", "family"])["detection_rate"].mean().reset_index(),
+                   out / "tables" / "cross_unseen_attacks", "Detection rate of never-seen attack families")
+
+
 def main():
     args = parser(__doc__).parse_args()
-    paths = paths_for(args)
+    paths, reg = paths_for(args), registry(args)
     out = paths.out("paper")
-    detection(paths, out, args)
+    detection(paths, out, args, reg)
+    leakage(paths, out, reg)
     placement(paths, out, args)
-    coupled(paths, out, args)
+    coupled(paths, out)
+    cross(paths, out)
     log.info("Paper tables and figures in %s", out)
 
 
