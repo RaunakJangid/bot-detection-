@@ -24,7 +24,8 @@ def deep_merge(base: dict, override: dict) -> dict:
 
 def load_config(name: str, smoke: bool = False) -> dict[str, Any]:
     """Load configs/<name>.yaml; with smoke=True the `smoke:` section is merged on top."""
-    with open(CONFIG_DIR / f"{name}.yaml", encoding="utf-8") as f:
+    # utf-8-sig tolerates the byte-order mark Windows PowerShell 5.1 adds when it writes files.
+    with open(CONFIG_DIR / f"{name}.yaml", encoding="utf-8-sig") as f:
         cfg = yaml.safe_load(f) or {}
     smoke_cfg = cfg.pop("smoke", {}) or {}
     return deep_merge(cfg, smoke_cfg) if smoke else cfg
