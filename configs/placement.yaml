@@ -1,0 +1,63 @@
+seed: 2026
+workers: 16
+runs: 30                       # independent seeds per (algorithm, topology, k, rho)
+budget: 20000                  # objective evaluations per run, same for every metaheuristic
+zoo: [Abilene, Geant2012, Cogentco, Kdl]
+synthetic: [50, 100, 200, 500]
+k_values: [2, 4, 6, 8]
+rho_values: [0.3, 0.5, 0.7, 0.9]
+# rho is swept only at this k; other k values use rho_default. null = full cross product.
+rho_sweep_k: 4
+rho_default: 0.5
+algorithms: [hybrid_eho_aco, eho, aco, ga, pso, sa, random, kmedian, kcenter, kmeans, pagerank, ilp_ckm]
+
+controller:
+  cores: 4
+  eta: 0.5                     # fraction of a core's detection throughput available to the controller
+  u_max: 0.95                  # max stable utilisation
+  # Single-core flows/s of the detector; overridden by outputs/latency/latency.json when present.
+  default_mu_flow: 200000
+  capacity_run: ciciot_class34 # entry in latency.json (dataset_task)
+  capacity_model: shield       # model within that entry used for mu_flow
+demand_sigma: 1.0              # lognormal spread of per-switch demand
+objective:
+  weights: {avg: 1.0, max: 0.5, inter: 0.1, imbalance: 0.2, fail: 1.0}
+  overload_penalty: 10.0
+  sla_ms: 20.0
+  n_reference: 200             # random placements used to normalise terms
+hybrid:
+  n_clans: 5
+  clan_size: 8
+  alpha: 0.5                   # clan update: fraction moved toward matriarch
+  beta: 0.3                    # matriarch update: fraction moved toward clan consensus
+  ants_per_clan: 1             # worst elephants rebuilt by ants each generation
+  local_search_every: 10
+  local_search_evals: 40
+aco:
+  n_ants: 20
+  a: 1.0
+  b: 2.0
+  evaporation: 0.1
+  mask_quantile: 0.05          # coverage mask radius as a quantile of pairwise latency
+ga: {pop: 40, cx_rate: 0.9, mut_rate: 0.2, elite: 2, tournament: 3}
+pso: {swarm: 30, w: 0.4, c1: 0.3, c2: 0.3}
+sa: {t0_samples: 50, cooling: 0.999}
+resilience:
+  link_fail_fracs: [0.05, 0.10, 0.20]
+  node_fail_fracs: [0.05, 0.10, 0.20]
+  trials: 10
+  max_double: 50
+brute_force_limit: 2000000     # exact search when C(n, k) is at most this
+ilp_time_limit: 120
+
+smoke:
+  workers: 2
+  runs: 2
+  budget: 300
+  zoo: []
+  synthetic: [20]
+  k_values: [2, 3]
+  rho_values: [0.5]
+  rho_sweep_k: null
+  resilience: {trials: 2, max_double: 5}
+  ilp_time_limit: 10

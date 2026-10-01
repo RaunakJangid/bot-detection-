@@ -1,0 +1,61 @@
+[project]
+name = "shield-iot"
+version = "0.1.0"
+description = "SHIELD-IoT: SHAP-guided knowledge distillation with hybrid EHO-ACO for lightweight botnet detection and resilient security controller placement"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "numpy>=1.26",
+    "pandas>=2.2",
+    "pyarrow>=16",
+    "scikit-learn>=1.5",
+    "scipy>=1.13",
+    "xgboost>=2.1",
+    "shap>=0.46",
+    "numba>=0.60",
+    "networkx>=3.3",
+    "matplotlib>=3.9",
+    "seaborn>=0.13",
+    "pyyaml>=6",
+    "tqdm>=4.66",
+    "psutil>=6",
+    "joblib>=1.4",
+]
+
+[project.optional-dependencies]
+# Pick exactly one: `uv sync --extra cu128` on the GPU desktop, `uv sync --extra cpu` elsewhere.
+cpu = ["torch>=2.5"]
+cu128 = ["torch>=2.5"]
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[tool.uv]
+conflicts = [[{ extra = "cpu" }, { extra = "cu128" }]]
+
+[tool.uv.sources]
+torch = [
+    { index = "pytorch-cpu", extra = "cpu" },
+    { index = "pytorch-cu128", extra = "cu128" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/shield"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

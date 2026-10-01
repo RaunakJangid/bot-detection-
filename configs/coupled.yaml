@@ -1,0 +1,22 @@
+# Detector capacity -> number of controllers needed. Demand is held fixed while the detector changes:
+# total demand = rho * k_ref * mu_c(demand_reference_model), i.e. rho is the utilisation the reference
+# detector would see with k_ref controllers.
+topologies: [Geant2012, Cogentco, syn200]
+rho_values: [0.5, 0.7, 0.9]
+k_ref: 4
+demand_reference_model: teacher
+k_max: 20
+models: [shield, shield_int8, teacher]
+runs: 3
+budget: 10000
+sla_target: 0.95               # fraction of switches within sla_ms ...
+require_failover: true         # ... also under the worst single-controller failure, with no overload
+workers: 16
+
+smoke:
+  topologies: [syn20]
+  rho_values: [0.5]
+  k_max: 6
+  runs: 1
+  budget: 200
+  workers: 2

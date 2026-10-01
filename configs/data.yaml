@@ -1,0 +1,21 @@
+seed: 42
+chunksize: 1000000
+botiot_workers: 8
+# Feature transform applied before standardisation: "signed_log" or "none".
+transform: signed_log
+# Bot-IoT split fractions (CICIoT2023 keeps its provided split).
+botiot_split: [0.70, 0.15, 0.15]
+# One-hot categories seen fewer times than this in train are merged into "other".
+min_category_count: 100
+# Cap rows per class per split; null = full data. Only for smoke/quick-pass runs.
+max_per_class: null
+# Ingestion limits; null = everything.
+max_rows_per_file: null
+max_botiot_files: null
+
+smoke:
+  chunksize: 20000
+  botiot_workers: 2
+  max_rows_per_file: 20000
+  max_botiot_files: 4
+  max_per_class: 2000
