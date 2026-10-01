@@ -3,19 +3,25 @@
 Output layout (data/processed/<dataset>/):
     X_<split>.npy              float32 (rows, features), imputed + transformed + standardised
     y_<task>_<split>.npy       int16 class indices
-    meta.json                  features, classes per task, split counts, scaler statistics
+    meta.json                  features, classes per task, split counts, scaler statistics, de-dup stats
 Splits are always: train, validation, test. All statistics are fitted on train only.
+
+Leakage controls (all datasets):
+  * `drop`: features removed under the strict protocol (configs/datasets.yaml).
+  * Exact duplicate feature vectors are removed across splits (train kept first), so no test row
+    also appears in train; hashes with conflicting labels are dropped entirely.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Callable
 
 import numpy as np
 import pandas as pd
 import pyarrow.parquet as pq
 
-from shield.data.ingest import BOTIOT_CAT, BOTIOT_NUM, CICIOT_LABEL, HASH_COL
+from shield.data.ingest import BOTIOT_CAT, BOTIOT_NUM, LABEL
 from shield.utils.io import save_json
 from shield.utils.logging import get_logger
 
@@ -24,6 +30,8 @@ log = get_logger(__name__)
 SPLITS = ("train", "validation", "test")
 BOTIOT_CATEGORIES = ["Normal", "DDoS", "DoS", "Reconnaissance", "Theft"]
 CICIOT_FAMILIES = ["Benign", "DDoS", "DoS", "Mirai", "Recon", "Spoofing", "Web", "BruteForce"]
+CICIOMT_CATEGORIES = ["Benign", "DDoS", "DoS", "MQTT", "Recon", "Spoofing"]
+SHARED5 = ["Benign", "DDoS", "DoS", "Recon", "Spoofing"]
 _CICIOT_EXACT = {
     "VulnerabilityScan": "Recon",
     "DNS_Spoofing": "Spoofing",
@@ -46,6 +54,45 @@ def ciciot_family(label: str) -> str:
         if label.startswith(prefix):
             return family
     raise ValueError(f"Unknown CICIoT2023 label {label!r}: add it to the family mapping in preprocess.py")
+
+
+def ciciomt_category(label: str) -> str:
+    if label == "Benign":
+        return "Benign"
+    for prefix in ("MQTT", "DDoS", "DoS", "Recon"):  # MQTT first: "MQTT-DDoS-..." is an MQTT attack
+        if label.startswith(prefix):
+            return prefix
+    if "Spoofing" in label:
+        return "Spoofing"
+    raise ValueError(f"Unknown CICIoMT2024 label {label!r}: add it to ciciomt_category in preprocess.py")
+
+
+def family_of(source: str, label: str) -> str:
+    return ciciot_family(label) if source == "ciciot" else ciciomt_category(label)
+
+
+def shared_class(source: str, label: str) -> str | None:
+    """Class in the label space both CIC datasets share, or None (Mirai, Web, BruteForce, MQTT)."""
+    fam = family_of(source, label)
+    return fam if fam in SHARED5 else None
+
+
+TaskSpec = tuple[list[str], Callable[[str], str]]
+
+
+def cic_task_specs(source: str, labels: list[str], shared: bool) -> dict[str, TaskSpec]:
+    benign = lambda l: "Benign" if family_of(source, l) == "Benign" else "Attack"
+    if shared:
+        return {"binary": (["Benign", "Attack"], benign),
+                "shared5": (SHARED5, lambda l: shared_class(source, l))}
+    present = {family_of(source, l) for l in labels}
+    if source == "ciciot":
+        fams = [f for f in CICIOT_FAMILIES if f in present]
+        return {"binary": (["Benign", "Attack"], benign), "family": (fams, ciciot_family),
+                "class34": (sorted(labels), lambda l: l)}
+    cats = [c for c in CICIOMT_CATEGORIES if c in present]
+    return {"binary": (["Benign", "Attack"], benign), "category": (cats, ciciomt_category),
+            "attack": (sorted(labels), lambda l: l)}
 
 
 # ---------------------------------------------------------------- numeric transform
@@ -100,22 +147,68 @@ def cap_per_class(idx: np.ndarray, y: np.ndarray, cap: int | None, rng: np.rando
     for c in np.unique(y):
         members = idx[y == c]
         keep.append(members if len(members) <= cap else rng.choice(members, cap, replace=False))
-    return np.sort(np.concatenate(keep))
+    return np.sort(np.concatenate(keep)) if keep else idx
 
 
 def stratified_split(strata: np.ndarray, fracs: tuple[float, float, float],
                      rng: np.random.Generator) -> dict[str, np.ndarray]:
-    """Per-stratum permutation split. Returns sorted positional indices per split."""
+    """Per-stratum permutation split. Returns sorted positional indices per split.
+    With fracs[2] == 0 the validation split takes the remainder (nothing is lost to rounding)."""
     parts = {s: [] for s in SPLITS}
     for c in np.unique(strata):
         members = rng.permutation(np.flatnonzero(strata == c))
         n = len(members)
         n_tr = int(round(fracs[0] * n))
-        n_va = int(round(fracs[1] * n))
+        n_va = n - n_tr if fracs[2] == 0 else int(round(fracs[1] * n))
         parts["train"].append(members[:n_tr])
         parts["validation"].append(members[n_tr:n_tr + n_va])
         parts["test"].append(members[n_tr + n_va:])
-    return {s: np.sort(np.concatenate(v)) for s, v in parts.items()}
+    return {s: np.sort(np.concatenate(v)).astype(np.int64) for s, v in parts.items()}
+
+
+def row_hash(df: pd.DataFrame) -> np.ndarray:
+    return pd.util.hash_pandas_object(df, index=False).to_numpy(np.uint64)
+
+
+def dedup_mask(h: np.ndarray, labkey: np.ndarray) -> tuple[np.ndarray, dict]:
+    """Keep the first row (in input order) of every distinct feature hash; drop every row of hashes
+    whose labels conflict."""
+    order = np.argsort(h, kind="stable")
+    hs, lab = h[order], labkey[order]
+    start = np.empty(len(hs), dtype=bool)
+    start[0] = True
+    np.not_equal(hs[1:], hs[:-1], out=start[1:])
+    gid = np.cumsum(start) - 1
+    first_lab = lab[start][gid]
+    conflict_group = np.zeros(gid[-1] + 1, dtype=bool)
+    conflict_group[gid[lab != first_lab]] = True
+    keep_sorted = start & ~conflict_group[gid]
+    keep = np.zeros(len(h), dtype=bool)
+    keep[order[keep_sorted]] = True
+    stats = {
+        "rows_in": int(len(h)),
+        "unique_feature_rows": int(start.sum()),
+        "duplicate_rows_dropped": int(len(h) - start.sum()),
+        "conflicting_hashes": int(conflict_group.sum()),
+        "conflicting_rows_dropped": int(conflict_group[gid].sum()),
+        "rows_out": int(keep.sum()),
+    }
+    return keep, stats
+
+
+def dedup_across_splits(hashes: dict[str, np.ndarray], labels: dict[str, np.ndarray]) -> tuple[dict, dict]:
+    """De-duplicate over train -> validation -> test, so a vector seen in train is removed from
+    validation/test (and from later positions within a split). Returns (keep mask per split, stats)."""
+    h = np.concatenate([hashes[s] for s in SPLITS])
+    lab = np.concatenate([labels[s] for s in SPLITS]).astype(np.int64)
+    keep, stats = dedup_mask(h, lab)
+    out, start = {}, 0
+    for s in SPLITS:
+        n = len(hashes[s])
+        out[s] = keep[start:start + n]
+        stats[f"{s}_in"], stats[f"{s}_out"] = int(n), int(out[s].sum())
+        start += n
+    return out, stats
 
 
 def _class_counts(y: np.ndarray, classes: list[str]) -> dict[str, int]:
@@ -141,46 +234,85 @@ def _write_outputs(out_dir: Path, X: dict[str, np.ndarray] | None, ys: dict[str,
     log.info("Wrote %s", out_dir)
 
 
-# ---------------------------------------------------------------- CICIoT2023
+# ---------------------------------------------------------------- CICIoT2023 / CICIoMT2024
 
-def preprocess_ciciot(interim: Path, out_dir: Path, cfg: dict) -> dict:
+def load_cic_frames(source: str, interim: Path, cfg: dict, rng: np.random.Generator) -> dict[str, pd.DataFrame]:
+    if source == "ciciot":
+        return {s: pd.read_parquet(interim / f"{s}.parquet") for s in SPLITS}
+    # CICIoMT2024: capture-level train/test as shipped; validation is a stratified slice of train.
+    train, test = pd.read_parquet(interim / "train.parquet"), pd.read_parquet(interim / "test.parquet")
+    v = cfg["ciciomt_val_frac"]
+    parts = stratified_split(pd.factorize(train[LABEL])[0], (1 - v, v, 0.0), rng)
+    return {"train": train.iloc[parts["train"]].reset_index(drop=True),
+            "validation": train.iloc[parts["validation"]].reset_index(drop=True), "test": test}
+
+
+def cic_feature_columns(interim: Path) -> list[str]:
+    return [c for c in pq.ParquetFile(interim / "train.parquet").schema.names if c != LABEL]
+
+
+def shared_features(interims: dict[str, Path], drop: list[str]) -> list[str]:
+    """Features both CIC datasets have (CICIoT2023 column order), minus `drop`."""
+    other = set(cic_feature_columns(interims["ciciomt"]))
+    return [c for c in cic_feature_columns(interims["ciciot"]) if c in other and c not in drop]
+
+
+def preprocess_cic(dataset: str, source: str, interim: Path, out_dir: Path, cfg: dict, drop: list[str],
+                   shared: bool = False, features: list[str] | None = None) -> dict:
     rng = np.random.default_rng(cfg["seed"])
-    frames = {s: pd.read_parquet(interim / f"{s}.parquet") for s in SPLITS}
-    features = [c for c in frames["train"].columns if c != CICIOT_LABEL]
-    # Union over splits: a capped or partial train split can miss rare classes that val/test contain.
-    classes34 = sorted(set().union(*(set(df[CICIOT_LABEL].unique()) for df in frames.values())))
-    families_present = {ciciot_family(c) for c in classes34}
-    families = [f for f in CICIOT_FAMILIES if f in families_present]
-    tasks = {"binary": ["Benign", "Attack"], "family": families, "class34": classes34}
-    log.info("CICIoT2023: %d features, %d classes, %d families", len(features), len(classes34), len(families))
-
-    cls_index = {c: i for i, c in enumerate(classes34)}
-    fam_index = {f: i for i, f in enumerate(families)}
-    raw, ys = {}, {t: {} for t in tasks}
-    missing = set(classes34) - set(frames["train"][CICIOT_LABEL].unique())
+    frames = load_cic_frames(source, interim, cfg, rng)
+    all_cols = [c for c in frames["train"].columns if c != LABEL]
+    features = features or [c for c in all_cols if c not in drop]
+    missing = set(features) - set(all_cols)
     if missing:
-        log.warning("CICIoT2023 train split lacks classes %s (expected only for partial/smoke data)", sorted(missing))
-    for split, df in frames.items():
-        y34 = df[CICIOT_LABEL].map(cls_index).to_numpy(np.int16)
-        keep = cap_per_class(np.arange(len(df)), y34, cfg.get("max_per_class"), rng)
-        fam = np.array([fam_index[ciciot_family(l)] for l in classes34], dtype=np.int16)[y34[keep]]
-        ys["class34"][split] = y34[keep]
-        ys["family"][split] = fam
-        ys["binary"][split] = (fam != fam_index["Benign"]).astype(np.int16)
-        raw[split] = df[features].to_numpy(np.float32)[keep]
+        raise ValueError(f"{dataset}: features {sorted(missing)} not in {source}")
+
+    labels = sorted(set().union(*(set(df[LABEL].unique()) for df in frames.values())))
+    if shared:  # keep only classes present in both datasets' label spaces
+        keep_labels = {l for l in labels if shared_class(source, l) is not None}
+        frames = {s: df[df[LABEL].isin(keep_labels)].reset_index(drop=True) for s, df in frames.items()}
+        labels = sorted(keep_labels)
+    tasks = cic_task_specs(source, labels, shared)
+    absent = set(labels) - set(frames["train"][LABEL].unique())
+    if absent:
+        log.warning("%s train split lacks classes %s (expected only for partial/smoke data)", dataset, sorted(absent))
+
+    lab_index = {l: i for i, l in enumerate(labels)}
+    codes = {s: df[LABEL].map(lab_index).to_numpy(np.int64) for s, df in frames.items()}
+    keep, dedup_stats = dedup_across_splits({s: row_hash(df[features]) for s, df in frames.items()}, codes)
+    log.info("%s de-dup across splits: %s", dataset, dedup_stats)
+
+    raw, ys = {}, {t: {} for t in tasks}
+    for s in SPLITS:
+        idx = cap_per_class(np.flatnonzero(keep[s]), codes[s][keep[s]], cfg.get("max_per_class"), rng)
+        df = frames[s].iloc[idx]
+        for task, (classes, fn) in tasks.items():
+            cls_index = {c: i for i, c in enumerate(classes)}
+            lut = {l: cls_index[fn(l)] for l in labels}
+            ys[task][s] = df[LABEL].map(lut).to_numpy(np.int16)
+        raw[s] = df[features].to_numpy(np.float32)
     del frames
 
     scaler = NumericScaler(cfg["transform"]).fit(raw["train"])
     X = {}
-    for split in SPLITS:
-        X[split] = np.empty_like(raw[split])
-        scaler.apply(raw[split], X[split])
-        del raw[split]
-    meta = {"dataset": "ciciot", "features": features, "n_features": len(features),
-            "n_rows": {s: len(X[s]) for s in SPLITS}, "scaler": scaler.state(),
+    for s in SPLITS:
+        X[s] = np.empty_like(raw[s])
+        scaler.apply(raw[s], X[s])
+        del raw[s]
+    meta = {"dataset": dataset, "source": source, "shared": shared, "dropped_features": drop,
+            "features": features, "n_features": len(features), "n_rows": {s: len(X[s]) for s in SPLITS},
+            "labels": labels, "scaler": scaler.state(), "dedup": dedup_stats,
             "max_per_class": cfg.get("max_per_class")}
-    _write_outputs(out_dir, X, ys, tasks, meta)
+    _write_outputs(out_dir, X, ys, {t: c for t, (c, _) in tasks.items()}, meta)
     return meta
+
+
+def preprocess_ciciot(interim: Path, out_dir: Path, cfg: dict, drop: list[str] = ()) -> dict:
+    return preprocess_cic("ciciot", "ciciot", interim, out_dir, cfg, list(drop))
+
+
+def preprocess_ciciomt(interim: Path, out_dir: Path, cfg: dict, drop: list[str] = ()) -> dict:
+    return preprocess_cic("ciciomt", "ciciomt", interim, out_dir, cfg, list(drop))
 
 
 # ---------------------------------------------------------------- Bot-IoT
@@ -192,45 +324,22 @@ def _botiot_parts(interim: Path) -> list[Path]:
     return parts
 
 
-def dedup_mask(h: np.ndarray, labkey: np.ndarray) -> tuple[np.ndarray, dict]:
-    """Keep the first row of every distinct feature hash; drop every row of hashes whose labels conflict."""
-    order = np.argsort(h, kind="stable")
-    hs, lab = h[order], labkey[order]
-    start = np.empty(len(hs), dtype=bool)
-    start[0] = True
-    np.not_equal(hs[1:], hs[:-1], out=start[1:])
-    gid = np.cumsum(start) - 1
-    first_lab = lab[start][gid]
-    conflict_group = np.zeros(gid[-1] + 1, dtype=bool)
-    conflict_group[gid[lab != first_lab]] = True
-    keep_sorted = start & ~conflict_group[gid]
-    keep = np.zeros(len(h), dtype=bool)
-    keep[order[keep_sorted]] = True
-    stats = {
-        "rows_in": int(len(h)),
-        "unique_feature_rows": int(start.sum()),
-        "duplicate_rows_dropped": int(len(h) - start.sum()),
-        "conflicting_hashes": int(conflict_group.sum()),
-        "conflicting_rows_dropped": int(conflict_group[gid].sum()),
-        "rows_out": int(keep.sum()),
-    }
-    return keep, stats
-
-
-def preprocess_botiot(interim: Path, out_dir: Path, cfg: dict) -> dict:
+def preprocess_botiot(interim: Path, out_dir: Path, cfg: dict, drop: list[str] = (),
+                      dataset: str = "botiot") -> dict:
     rng = np.random.default_rng(cfg["seed"])
     parts = _botiot_parts(interim)
     cat_index = {c: i for i, c in enumerate(BOTIOT_CATEGORIES)}
+    num_cols = [c for c in BOTIOT_NUM if c not in drop]
 
-    # Pass 1: hashes + labels only (small), for de-duplication and the stratified split.
+    # Pass 1: feature hashes (on the kept features) + labels, for de-duplication and the split.
     hs, cats, subs, attack, sizes = [], [], [], [], []
     sub_vocab: dict[str, int] = {}
     for p in parts:
-        t = pq.read_table(p, columns=[HASH_COL, "category", "subcategory", "attack"]).to_pandas()
+        t = pq.read_table(p, columns=num_cols + BOTIOT_CAT + ["category", "subcategory", "attack"]).to_pandas()
         unknown = set(t["category"].unique()) - set(cat_index)
         if unknown:
             raise ValueError(f"Unknown Bot-IoT categories {sorted(unknown)} in {p.name}")
-        hs.append(t[HASH_COL].to_numpy(np.uint64))
+        hs.append(row_hash(t[num_cols + BOTIOT_CAT]))
         cats.append(t["category"].map(cat_index).to_numpy(np.int16))
         for s in t["subcategory"].unique():
             sub_vocab.setdefault(s, len(sub_vocab))
@@ -240,12 +349,12 @@ def preprocess_botiot(interim: Path, out_dir: Path, cfg: dict) -> dict:
     h = np.concatenate(hs); cat = np.concatenate(cats); sub = np.concatenate(subs); att = np.concatenate(attack)
     del hs, cats, subs, attack
     offsets = np.concatenate([[0], np.cumsum(sizes)])
-    log.info("Bot-IoT: %d rows across %d parts", len(h), len(parts))
+    log.info("%s: %d rows across %d parts", dataset, len(h), len(parts))
 
     labkey = cat.astype(np.int64) * 1024 + sub
     keep, dedup_stats = dedup_mask(h, labkey)
     del h, labkey
-    log.info("Bot-IoT de-dup: %s", dedup_stats)
+    log.info("%s de-dup: %s", dataset, dedup_stats)
 
     kept = np.flatnonzero(keep)
     split_pos = stratified_split(sub[kept], tuple(cfg["botiot_split"]), rng)
@@ -257,23 +366,23 @@ def preprocess_botiot(interim: Path, out_dir: Path, cfg: dict) -> dict:
 
     # Pass 2: gather numeric features + categorical codes for the selected rows, part by part.
     cat_vocab = {c: {} for c in BOTIOT_CAT}
-    num = {s: np.empty((len(split_idx[s]), len(BOTIOT_NUM)), np.float32) for s in SPLITS}
+    num = {s: np.empty((len(split_idx[s]), len(num_cols)), np.float32) for s in SPLITS}
     codes = {s: np.empty((len(split_idx[s]), len(BOTIOT_CAT)), np.int16) for s in SPLITS}
     for pi, p in enumerate(parts):
         lo, hi = offsets[pi], offsets[pi + 1]
-        df = pq.read_table(p, columns=BOTIOT_NUM + BOTIOT_CAT).to_pandas()
-        for j, c in enumerate(BOTIOT_CAT):
+        df = pq.read_table(p, columns=num_cols + BOTIOT_CAT).to_pandas()
+        for c in BOTIOT_CAT:
             for v in df[c].unique():
                 cat_vocab[c].setdefault(v, len(cat_vocab[c]))
         part_codes = np.stack([df[c].map(cat_vocab[c]).to_numpy(np.int16) for c in BOTIOT_CAT], axis=1)
-        part_num = df[BOTIOT_NUM].to_numpy(np.float32)
+        part_num = df[num_cols].to_numpy(np.float32)
         del df
         for s in SPLITS:
             a, b = np.searchsorted(split_idx[s], [lo, hi])
             local = split_idx[s][a:b] - lo
             num[s][a:b] = part_num[local]
             codes[s][a:b] = part_codes[local]
-        log.info("Bot-IoT gather %d/%d", pi + 1, len(parts))
+        log.info("%s gather %d/%d", dataset, pi + 1, len(parts))
 
     # One-hot vocabulary from train counts; rare values fold into "<col>=other".
     onehot_cols, onehot_maps = [], []
@@ -290,15 +399,15 @@ def preprocess_botiot(interim: Path, out_dir: Path, cfg: dict) -> dict:
         onehot_cols.extend(names); onehot_maps.append((len(onehot_cols) - len(names), col_of))
 
     scaler = NumericScaler(cfg["transform"]).fit(num["train"])
-    features = BOTIOT_NUM + onehot_cols
+    features = num_cols + onehot_cols
     out_dir.mkdir(parents=True, exist_ok=True)
     for s in SPLITS:
         X = np.lib.format.open_memmap(out_dir / f"X_{s}.npy", mode="w+", dtype=np.float32,
                                       shape=(len(split_idx[s]), len(features)))
-        scaler.apply(num[s], X[:, :len(BOTIOT_NUM)])
-        X[:, len(BOTIOT_NUM):] = 0.0
+        scaler.apply(num[s], X[:, :len(num_cols)])
+        X[:, len(num_cols):] = 0.0
         for j, (base, col_of) in enumerate(onehot_maps):
-            cols = len(BOTIOT_NUM) + base + col_of[codes[s][:, j]]
+            cols = len(num_cols) + base + col_of[codes[s][:, j]]
             X[np.arange(len(X)), cols] = 1.0
         X.flush(); del X
         num[s] = None
@@ -308,9 +417,21 @@ def preprocess_botiot(interim: Path, out_dir: Path, cfg: dict) -> dict:
     for s in SPLITS:
         ys["binary"][s] = att[split_idx[s]]
         ys["category"][s] = cat[split_idx[s]]
-    meta = {"dataset": "botiot", "features": features, "n_features": len(features),
-            "numeric_features": BOTIOT_NUM, "onehot_features": onehot_cols,
+    meta = {"dataset": dataset, "source": "botiot", "shared": False, "dropped_features": list(drop),
+            "features": features, "n_features": len(features),
+            "numeric_features": num_cols, "onehot_features": onehot_cols,
             "n_rows": {s: int(len(split_idx[s])) for s in SPLITS}, "scaler": scaler.state(),
             "dedup": dedup_stats, "subcategories": list(sub_vocab), "max_per_class": cfg.get("max_per_class")}
     _write_outputs(out_dir, None, ys, tasks, meta)
     return meta
+
+
+# ---------------------------------------------------------------- dispatch
+
+def preprocess_dataset(dataset: str, spec: dict, drop: list[str], interims: dict[str, Path], out_dir: Path,
+                       cfg: dict) -> dict:
+    source = spec["source"]
+    if source == "botiot":
+        return preprocess_botiot(interims["botiot"], out_dir, cfg, drop, dataset)
+    features = shared_features(interims, drop) if spec.get("shared") else None
+    return preprocess_cic(dataset, source, interims[source], out_dir, cfg, drop, bool(spec.get("shared")), features)

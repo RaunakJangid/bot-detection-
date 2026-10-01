@@ -1,6 +1,4 @@
-tasks:
-  ciciot: [binary, family, class34]
-  botiot: [binary, category]
+# Tasks and per-dataset seeds live in datasets.yaml.
 seeds: [0, 1, 2, 3, 4]
 model: resmlp            # resmlp | ftt
 resmlp: {width: 384, depth: 4, dropout: 0.2}
@@ -20,7 +18,7 @@ train:
   # Samples per epoch; null = one pass over the training split.
   samples_per_epoch: null
   eval_batch_size: 65536
-# Per-dataset overrides (merged into train).
+# Overrides merged into `train`, keyed by raw source (apply to every dataset built from it).
 dataset_overrides:
   botiot:
     class_weight: none
@@ -33,6 +31,13 @@ xgboost:
   learning_rate: 0.1
   early_stopping_rounds: 50
   max_train_rows: 10000000
+# Simple models of similar size to the student ("why not a small tree?").
+baselines:
+  models: [dtree, logreg]
+  max_train_rows: 2000000
+  logreg_max_train_rows: 1000000
+  dtree_max_depth: 10
+  logreg_max_iter: 300
 
 smoke:
   seeds: [0]
@@ -40,3 +45,4 @@ smoke:
   dataset_overrides:
     botiot: {samples_per_epoch: 5000}
   xgboost: {n_estimators: 30}
+  baselines: {logreg_max_iter: 50}

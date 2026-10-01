@@ -3,7 +3,7 @@
 import multiprocessing as mp
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
-from shield.cli import parser, paths_for, selected_datasets, tasks_for
+from shield.cli import parser, registry, selected_datasets
 from shield.kd.trainer import run_distillation
 from shield.utils.config import Paths, load_config
 from shield.utils.device import get_device
@@ -29,22 +29,24 @@ def main():
     p.add_argument("--k-sweep", action="store_true",
                    help="instead of the ablation grid, run the given variants (default: shield) at every k in shap.yaml k_values")
     args = p.parse_args()
-    paths_for(args)
-    kcfg, tcfg = load_config("kd", args.smoke), load_config("teacher", args.smoke)
+    reg = registry(args)
+    kcfg = load_config("kd", args.smoke)
     if args.k_sweep:
-        variants = args.variants or ["shield"]
+        datasets = selected_datasets(args, stage="k_sweep")
         ks = load_config("shap", args.smoke)["k_values"]
+        variants_of = lambda ds: args.variants or ["shield"]
     else:
-        variants = args.variants or list(kcfg["variants"])
+        datasets = selected_datasets(args)
         ks = [None]
+        variants_of = lambda ds: args.variants or reg.variants(ds, list(kcfg["variants"]))
     specs = [
         {"dataset": ds, "task": task, "variant": v, "seed": s, "k": k, "smoke": args.smoke, "cpu": args.cpu,
          "force": args.force}
-        for ds in selected_datasets(args)
-        for task in tasks_for(tcfg["tasks"], ds, args.task)
-        for v in variants
+        for ds in datasets
+        for task in reg.tasks(ds, args.task)
+        for v in variants_of(ds)
         for k in ks
-        for s in (args.seeds if args.seeds is not None else kcfg["seeds"])
+        for s in (args.seeds if args.seeds is not None else reg.seeds(ds, kcfg["seeds"]))
     ]
     jobs = args.jobs or kcfg["jobs"]
     log.info("%d distillation runs, %d at a time", len(specs), jobs)

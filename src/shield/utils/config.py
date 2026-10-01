@@ -43,6 +43,7 @@ class Paths:
         self.smoke = smoke
         self.ciciot_zip = Path(cfg["ciciot_zip"])
         self.botiot_zip = Path(cfg["botiot_zip"])
+        self.ciciomt_zip = Path(cfg["ciciomt_zip"])
         self.data = resolve(cfg["data_dir"])
         self.outputs = resolve(cfg["outputs_dir"])
 

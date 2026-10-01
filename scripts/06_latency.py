@@ -5,7 +5,7 @@ CPU numbers are single-core (pinned, 1 thread): the constrained-edge proxy used 
 
 import torch
 
-from shield.cli import parser, paths_for, selected_datasets, tasks_for
+from shield.cli import parser, paths_for, registry, selected_datasets
 from shield.eval.latency import cpu_latency, flops_per_sample, gpu_throughput, model_size_kb
 from shield.kd.trainer import kd_dir
 from shield.models.student import StudentMLP, count_params
@@ -27,13 +27,13 @@ def profile(model, n_features, runs, warmup, flops_model=None) -> dict:
 
 def main():
     args = parser(__doc__).parse_args()
-    paths = paths_for(args)
+    paths, reg = paths_for(args), registry(args)
     tcfg, kcfg = load_config("teacher", args.smoke), load_config("kd", args.smoke)
     runs = 50 if args.smoke else 1000
     out_file = paths.out("latency") / "latency.json"
     table = load_json(out_file) if out_file.exists() and not args.force else {}
-    for ds in selected_datasets(args):
-        for task in tasks_for(tcfg["tasks"], ds, args.task):
+    for ds in selected_datasets(args, stage="latency"):
+        for task in reg.tasks(ds, args.task):
             key = f"{ds}_{task}"
             entry = {}
             tdir = teacher_dir(paths, ds, task, tcfg["model"], kcfg["teacher_seed"])

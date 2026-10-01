@@ -10,6 +10,7 @@ import torch
 from torch import nn
 
 from shield.data.datasets import Batcher, class_weights, load_processed, predict_logits
+from shield.data.registry import Registry
 from shield.engine import fit
 from shield.eval.metrics import classification_metrics, confusion
 from shield.models.student import count_params
@@ -28,7 +29,9 @@ def teacher_dir(paths: Paths, dataset: str, task: str, model: str, seed: int) ->
 
 
 def train_cfg_for(cfg: dict, dataset: str) -> dict:
-    return deep_merge(cfg["train"], (cfg.get("dataset_overrides") or {}).get(dataset, {}))
+    """`train` merged with the overrides of the dataset's raw source (e.g. botiot_std uses botiot's)."""
+    source = Registry().source(dataset)
+    return deep_merge(cfg["train"], (cfg.get("dataset_overrides") or {}).get(source, {}))
 
 
 def train_teacher(paths: Paths, dataset: str, task: str, seed: int, cfg: dict, device: torch.device,

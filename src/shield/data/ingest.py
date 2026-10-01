@@ -30,7 +30,9 @@ BOTIOT_CAT = ["flgs", "proto", "state"]
 BOTIOT_NUM = ["pkts", "bytes", "seq", "dur", "mean", "stddev", "sum", "min", "max",
               "spkts", "dpkts", "sbytes", "dbytes", "rate", "srate", "drate"]
 BOTIOT_TARGETS = ["attack", "category", "subcategory"]
-HASH_COL = "_h"
+
+CICIOMT_SPLITS = ("train", "test")
+LABEL = "label"  # attack label column written for the CIC datasets
 
 
 def _write_chunks(chunks, out_path: Path) -> int:
@@ -78,6 +80,52 @@ def ingest_ciciot(zip_path: Path, out_dir: Path, chunksize: int, max_rows: int |
     return counts
 
 
+def ciciomt_label(member: str) -> str:
+    """'CICIoMT2024/train/TCP_IP-DDoS-ICMP3_train.pcap.csv' -> 'DDoS-ICMP' (numbered parts merged)."""
+    m = re.fullmatch(r"(.+)_(train|test)\.pcap\.csv", Path(member.replace("\\", "/")).name)
+    if not m:
+        raise ValueError(f"Unexpected CICIoMT2024 file name: {member}")
+    return re.sub(r"\d+$", "", m.group(1).removeprefix("TCP_IP-"))
+
+
+def ciciomt_members(zip_path: Path) -> dict[str, list[str]]:
+    with zipfile.ZipFile(zip_path) as zf:
+        names = [n for n in zf.namelist() if n.endswith(".pcap.csv")]
+    out = {s: sorted(n for n in names if f"/{s}/" in "/" + n.replace("\\", "/")) for s in CICIOMT_SPLITS}
+    for s, members in out.items():
+        if not members:
+            raise FileNotFoundError(f"No CICIoMT2024 {s} CSVs in {zip_path}")
+    return out
+
+
+def ingest_ciciomt(zip_path: Path, out_dir: Path, chunksize: int, max_rows: int | None = None,
+                   force: bool = False) -> dict[str, int]:
+    """Wi-Fi/MQTT attack CSVs (capture-level train/test) -> one Parquet per split with a `label` column."""
+    counts = {}
+    members = ciciomt_members(zip_path)
+    with zipfile.ZipFile(zip_path) as zf:
+        for split, files in members.items():
+            out = out_dir / f"{split}.parquet"
+            if out.exists() and not force:
+                counts[split] = pq.ParquetFile(out).metadata.num_rows
+                log.info("CICIoMT2024 %s: exists (%d rows), skipping", split, counts[split])
+                continue
+
+            def chunks():
+                for member in files:
+                    label = ciciomt_label(member)
+                    with zf.open(member) as f:
+                        for df in pd.read_csv(f, chunksize=chunksize, nrows=max_rows, low_memory=False):
+                            df.columns = [c.strip() for c in df.columns]
+                            df = df.apply(pd.to_numeric, errors="coerce").astype(np.float32)
+                            df[LABEL] = label
+                            yield df
+
+            counts[split] = _write_chunks(chunks(), out)
+            log.info("CICIoMT2024 %s: %d rows from %d files -> %s", split, counts[split], len(files), out)
+    return counts
+
+
 def _botiot_member_index(name: str) -> int:
     m = re.fullmatch(r"data_(\d+)\.csv", Path(name).name)
     return int(m.group(1)) if m else -1
@@ -111,10 +159,7 @@ def _ingest_botiot_file(zip_path: str, member: str, out_path: str, chunksize: in
                 for c in BOTIOT_CAT + ["category", "subcategory"]:
                     df[c] = df[c].fillna("").astype(str).str.strip()
                 df["attack"] = pd.to_numeric(df["attack"], errors="coerce").fillna(0).astype(np.int8)
-                df = df[BOTIOT_NUM + BOTIOT_CAT + BOTIOT_TARGETS]
-                # Hash of the feature values only, used later for global de-duplication.
-                df[HASH_COL] = pd.util.hash_pandas_object(df[BOTIOT_NUM + BOTIOT_CAT], index=False).to_numpy()
-                yield df
+                yield df[BOTIOT_NUM + BOTIOT_CAT + BOTIOT_TARGETS]
 
     rows = _write_chunks(chunks(), Path(out_path))
     return member, rows

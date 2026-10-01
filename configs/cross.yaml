@@ -1,0 +1,19 @@
+# Cross-dataset generalisation between the two CIC datasets (same feature extractor).
+# Models are trained on the shared datasets (xciciot / xciciomt: common features, shared classes).
+pairs:
+  - [xciciot, xciciomt]
+  - [xciciomt, xciciot]
+tasks: [binary, shared5]
+zero_shot_models: [teacher, xgboost, scratch_all, kd_all, kd_shap, shield]
+# Target-normalised fine-tuning with a small labelled share of the target training split.
+fewshot_models: [shield, kd_all]
+fractions: [0.001, 0.01, 0.05, 0.10]
+finetune: {epochs: 10, min_steps: 300, lr: 1.0e-3, batch_size: 1024, weight_decay: 1.0e-5}
+# Never-seen attack families in the target (binary detector only): base dataset + its finest task.
+unseen:
+  xciciomt: {base: ciciomt, task: attack}
+  xciciot: {base: ciciot, task: class34}
+
+smoke:
+  fractions: [0.05]
+  finetune: {epochs: 2, min_steps: 20}
