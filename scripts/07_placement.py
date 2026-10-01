@@ -69,10 +69,17 @@ def _run(task: tuple) -> dict:
            "seconds": res.seconds, "history": compress_history(res.history, cfg["budget"])}
     edge_bc, node_bc = _bc(topo_name)
     rep = resilience_report(topo.G, problem, res.best, cfg["resilience"], seed, edge_bc, node_bc)
-    for scen, metrics in rep.items():
-        for m, v in metrics.items():
-            row[f"res_{scen}_{m}"] = v
+    _flatten("res", rep, row)
     return row
+
+
+def _flatten(prefix: str, d: dict, row: dict) -> None:
+    """{'controller': {'single': {'worst_avg_ms': x}}} -> row['res_controller_single_worst_avg_ms'] = x"""
+    for k, v in d.items():
+        if isinstance(v, dict):
+            _flatten(f"{prefix}_{k}", v, row)
+        else:
+            row[f"{prefix}_{k}"] = v
 
 
 def _key(row_or_task) -> tuple:
