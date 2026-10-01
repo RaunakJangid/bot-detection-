@@ -1,0 +1,14 @@
+n_background: 1000
+n_explain: 5000
+nsamples: 200          # GradientExplainer samples per explained row
+batch_size: 500
+cumulative_threshold: 0.95
+k_values: [8, 12, 16, 24]
+top_plot: 20
+
+smoke:
+  n_background: 50
+  n_explain: 200
+  nsamples: 20
+  batch_size: 100
+  k_values: [8]

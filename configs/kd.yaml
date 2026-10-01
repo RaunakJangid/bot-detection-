@@ -1,0 +1,42 @@
+seeds: [0, 1, 2, 3, 4]
+# Teacher seed whose cache and SHAP ranking every student uses.
+teacher_seed: 0
+k: 16                     # features kept by every selection method; "k95" uses the SHAP 95% cutoff
+student: {hidden: [64, 32]}
+loss: {T: 4.0, alpha: 0.3, beta: 0.7, gamma: 0.1}
+# Ablation variants: selection method + which loss terms are on.
+variants:
+  scratch_all:    {select: all,    alpha: 1.0, beta: 0.0, gamma: 0.0}
+  kd_all:         {select: all,                            gamma: 0.0}
+  kd_shap:        {select: shap,                           gamma: 0.0}
+  shield:         {select: shap}
+  kd_random:      {select: random,                         gamma: 0.0}
+  kd_mi:          {select: mi,                             gamma: 0.0}
+  kd_variance:    {select: variance,                       gamma: 0.0}
+train:
+  epochs: 30
+  batch_size: 4096
+  lr: 3.0e-3
+  weight_decay: 1.0e-5
+  warmup_frac: 0.03
+  patience: 5
+  amp: false
+  class_weight: none
+  balance_power: 0.0
+  samples_per_epoch: null
+  eval_batch_size: 65536
+dataset_overrides:
+  botiot:
+    balance_power: 0.5
+    samples_per_epoch: 8000000
+jobs: 3                   # concurrent student runs on the GPU
+mi_sample: 50000
+
+smoke:
+  seeds: [0]
+  k: 8
+  train: {epochs: 2, batch_size: 512, patience: 2, eval_batch_size: 4096}
+  dataset_overrides:
+    botiot: {samples_per_epoch: 5000}
+  jobs: 1
+  mi_sample: 2000

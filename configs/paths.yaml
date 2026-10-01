@@ -1,0 +1,9 @@
+# Edit these on each machine. Relative paths resolve against the project root.
+ciciot_zip: "C:/Users/rauna/Downloads/archive (5).zip"
+botiot_zip: "C:/Users/rauna/Downloads/archive (6).zip"
+data_dir: data
+outputs_dir: outputs
+
+smoke:
+  data_dir: data_smoke
+  outputs_dir: outputs_smoke

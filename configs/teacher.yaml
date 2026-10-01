@@ -1,0 +1,42 @@
+tasks:
+  ciciot: [binary, family, class34]
+  botiot: [binary, category]
+seeds: [0, 1, 2, 3, 4]
+model: resmlp            # resmlp | ftt
+resmlp: {width: 384, depth: 4, dropout: 0.2}
+ftt: {d_token: 64, n_layers: 3, n_heads: 8, dropout: 0.1}
+train:
+  epochs: 40
+  batch_size: 8192
+  lr: 2.0e-3
+  weight_decay: 1.0e-4
+  warmup_frac: 0.03
+  patience: 6
+  amp: true
+  # Class weights for CE: none | inverse_sqrt | inverse
+  class_weight: inverse_sqrt
+  # Sampler re-balancing exponent (0 = plain shuffle, 1 = fully balanced).
+  balance_power: 0.0
+  # Samples per epoch; null = one pass over the training split.
+  samples_per_epoch: null
+  eval_batch_size: 65536
+# Per-dataset overrides (merged into train).
+dataset_overrides:
+  botiot:
+    class_weight: none
+    balance_power: 0.5
+    samples_per_epoch: 8000000
+xgboost:
+  seeds: [0]
+  n_estimators: 2000
+  max_depth: 10
+  learning_rate: 0.1
+  early_stopping_rounds: 50
+  max_train_rows: 10000000
+
+smoke:
+  seeds: [0]
+  train: {epochs: 3, batch_size: 512, patience: 2, eval_batch_size: 4096}
+  dataset_overrides:
+    botiot: {samples_per_epoch: 5000}
+  xgboost: {n_estimators: 30}
