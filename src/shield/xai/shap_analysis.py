@@ -23,22 +23,37 @@ from shield.utils.logging import get_logger
 log = get_logger(__name__)
 
 
+class _ClassOutput(nn.Module):
+    """View of a classifier that returns only logit `c`, so SHAP computes one output instead of all C."""
+
+    def __init__(self, model: nn.Module, c: int):
+        super().__init__()
+        self.model, self.c = model, c
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.model(x)[:, self.c:self.c + 1]
+
+
 def explain(model: nn.Module, background: np.ndarray, X: np.ndarray, y: np.ndarray, device: torch.device,
             nsamples: int, chunk: int) -> np.ndarray:
-    """GradientExplainer SHAP values for each row's true class -> (rows, features)."""
+    """GradientExplainer SHAP values for each row's true class -> (rows, features).
+
+    Rows are grouped by true class and each group is explained through a single-output view of the
+    model. Expected gradients treat each output independently, so this is the same estimator as
+    explaining all C outputs and keeping the true class, at ~1/C of the cost."""
     model = model.to(device).eval()
-    explainer = shap.GradientExplainer(model, torch.as_tensor(background, device=device),
-                                       batch_size=nsamples)
-    out = []
-    for i in range(0, len(X), chunk):
-        xb = torch.as_tensor(np.ascontiguousarray(X[i:i + chunk]), device=device)
-        sv = explainer.shap_values(xb, nsamples=nsamples)
-        sv = np.stack(sv, axis=-1) if isinstance(sv, list) else np.asarray(sv)  # -> (n, F, C)
-        if sv.ndim == 2:  # single-output model
-            sv = sv[..., None]
-        yb = y[i:i + chunk]
-        out.append(sv[np.arange(len(yb)), :, yb].astype(np.float32))
-    return np.concatenate(out)
+    bg = torch.as_tensor(np.ascontiguousarray(background), device=device)
+    out = np.zeros(X.shape, dtype=np.float32)
+    for c in np.unique(y):
+        rows = np.flatnonzero(y == c)
+        explainer = shap.GradientExplainer(_ClassOutput(model, int(c)), bg, batch_size=nsamples)
+        for i in range(0, len(rows), chunk):
+            idx = rows[i:i + chunk]
+            xb = torch.as_tensor(np.ascontiguousarray(X[idx]), device=device)
+            sv = explainer.shap_values(xb, nsamples=nsamples)
+            sv = np.asarray(sv[0] if isinstance(sv, list) else sv)
+            out[idx] = sv.reshape(len(idx), -1)
+    return out
 
 
 def importance_from_phi(phi: np.ndarray, y: np.ndarray, n_classes: int) -> tuple[np.ndarray, np.ndarray]:

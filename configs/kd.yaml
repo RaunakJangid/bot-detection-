@@ -31,6 +31,13 @@ dataset_overrides:
     samples_per_epoch: 8000000
 jobs: 3                   # concurrent student runs on the GPU
 mi_sample: 50000
+# Student-vs-teacher SHAP ranking agreement. Only computed for these seeds (it compares rankings,
+# so one seed per variant is enough), on a stratified subset of the teacher's explained rows.
+fidelity:
+  seeds: [0]
+  n_explain: 2000
+  nsamples: 100
+  batch_size: 500
 
 smoke:
   seeds: [0]
@@ -40,3 +47,4 @@ smoke:
     botiot: {samples_per_epoch: 5000}
   jobs: 1
   mi_sample: 2000
+  fidelity: {n_explain: 200, nsamples: 20, batch_size: 100}

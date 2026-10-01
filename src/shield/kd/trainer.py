@@ -36,7 +36,7 @@ def _columns(X: np.ndarray, S: np.ndarray) -> np.ndarray:
 
 
 def run_distillation(paths: Paths, dataset: str, task: str, variant: str, seed: int, cfg: dict,
-                     teacher_model: str, shap_cfg: dict, device: torch.device, force: bool = False,
+                     teacher_model: str, device: torch.device, force: bool = False,
                      k_override: int | None = None) -> dict:
     """k_override (for the F1-vs-k sweep) stores the run as '<variant>_k<k>'."""
     run_name = variant if k_override is None else f"{variant}_k{k_override}"
@@ -107,8 +107,10 @@ def run_distillation(paths: Paths, dataset: str, task: str, variant: str, seed: 
         "test_int8": classification_metrics(te.y, q_logits, data.n_classes, data.classes, full=True),
         "history": history, "hardware": hardware_record(),
     }
-    metrics["fidelity"] = student_fidelity(paths, dataset, task, teacher_model, t_seed, model, S, tr.X,
-                                           importance, shap_cfg, device)
+    fid = cfg["fidelity"]
+    metrics["fidelity"] = (student_fidelity(paths, dataset, task, teacher_model, t_seed, model, S, tr.X,
+                                            importance, fid, device, seed)
+                           if seed in fid["seeds"] else None)
     save_json(metrics, out / "metrics.json")
     log.info("KD %s test macro-F1 %.4f (int8 %.4f), k=%d, params=%d", name, metrics["test"]["macro_f1"],
              metrics["test_int8"]["macro_f1"], len(S), metrics["params"])
@@ -117,12 +119,16 @@ def run_distillation(paths: Paths, dataset: str, task: str, variant: str, seed: 
 
 def student_fidelity(paths: Paths, dataset: str, task: str, teacher_model: str, t_seed: int,
                      model: torch.nn.Module, S: np.ndarray, X_train: np.ndarray, teacher_importance: np.ndarray,
-                     shap_cfg: dict, device: torch.device) -> dict:
-    """Agreement between the student's and teacher's global SHAP rankings on the student's features."""
+                     fid_cfg: dict, device: torch.device, seed: int) -> dict:
+    """Agreement between the student's and teacher's global SHAP rankings on the student's features,
+    on a stratified subset of the rows the teacher's SHAP analysis explained."""
     sd = shap_dir(paths, dataset, task, teacher_model, t_seed)
     X_ex, y_ex = np.load(sd / "X_explain.npy"), np.load(sd / "y_explain.npy")
+    if len(y_ex) > fid_cfg["n_explain"]:
+        sub = stratified_sample(y_ex, fid_cfg["n_explain"], np.random.default_rng(seed), min_per_class=5)
+        X_ex, y_ex = X_ex[sub], y_ex[sub]
     bg = np.asarray(X_train[np.load(sd / "background_idx.npy")])[:, S]
-    phi = explain(model, bg, X_ex[:, S], y_ex, device, shap_cfg["nsamples"], shap_cfg["batch_size"])
+    phi = explain(model, bg, X_ex[:, S], y_ex, device, fid_cfg["nsamples"], fid_cfg["batch_size"])
     s_imp, _ = importance_from_phi(phi, y_ex, int(y_ex.max()) + 1)
     t_imp = teacher_importance[S]
     top = max(1, min(5, len(S)))

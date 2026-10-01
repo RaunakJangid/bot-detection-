@@ -39,8 +39,10 @@ def detection_table(paths: Paths, dataset: str, task: str, teacher_model: str, v
             return
         r = _metric_rows(files, key)
         L = lat.get(lat_key or name, {})
+        fid = [f["spearman"] for f in (load_json(p).get("fidelity") for p in files) if f]
         rows.append({"model": name, "runs": len(files), "k": k,
                      "macro_f1": _pm(r["macro_f1"]), "accuracy": _pm(r["accuracy"]), "mcc": _pm(r["mcc"], 1.0, 4),
+                     "shap_fidelity": round(float(np.mean(fid)), 3) if fid else None,
                      "params": params or L.get("params"), "size_kb": L.get("size_kb"),
                      "cpu_latency_b1_ms": L.get("latency_b1_ms"), "cpu_flows_per_s": L.get("throughput_b256")})
 
@@ -62,7 +64,8 @@ def k_sweep_table(paths: Paths, dataset: str, task: str) -> pd.DataFrame:
     for f in sorted((paths.outputs / "kd" / f"{dataset}_{task}").glob("shield_k*_s*/metrics.json")):
         m = load_json(f)
         rows.append({"k": m["k"], "seed": m["seed"], "macro_f1": m["test"]["macro_f1"],
-                     "macro_f1_int8": m["test_int8"]["macro_f1"], "fidelity": m["fidelity"]["spearman"]})
+                     "macro_f1_int8": m["test_int8"]["macro_f1"],
+                     "fidelity": (m.get("fidelity") or {}).get("spearman")})
     return pd.DataFrame(rows)
 
 
