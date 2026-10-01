@@ -50,9 +50,14 @@ def train_xgboost(paths: Paths, dataset: str, task: str, seed: int, cfg: dict, u
             verbose=False)
     train_seconds = time.time() - t0
 
+    # Predict through a DMatrix: avoids XGBoost's GPU-model/CPU-data mismatch fallback warning.
+    booster = clf.get_booster()
+    best = getattr(clf, "best_iteration", None)
+    rng_iter = (0, best + 1) if best is not None else (0, 0)
     proba = np.zeros((len(te.y), data.n_classes))
     for i in range(0, len(te.y), 1_000_000):
-        proba[i:i + 1_000_000, present] = clf.predict_proba(np.asarray(te.X[i:i + 1_000_000]))
+        p = booster.predict(xgb.DMatrix(np.asarray(te.X[i:i + 1_000_000])), iteration_range=rng_iter)
+        proba[i:i + 1_000_000, present] = np.stack([1 - p, p], 1) if binary else p
     logits = np.log(np.clip(proba, 1e-12, 1.0))
     clf.save_model(out / "model.json")
     np.save(out / "confusion.npy", confusion(te.y, logits, data.n_classes))

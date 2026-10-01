@@ -15,10 +15,9 @@ log = get_logger("distill")
 def _run(spec: dict) -> str:
     paths = Paths(spec["smoke"])
     kcfg, tcfg = load_config("kd", spec["smoke"]), load_config("teacher", spec["smoke"])
-    scfg = load_config("shap", spec["smoke"])
     device = get_device(spec["cpu"], spec["smoke"])
     m = run_distillation(paths, spec["dataset"], spec["task"], spec["variant"], spec["seed"], kcfg,
-                         tcfg["model"], scfg, device, spec["force"], k_override=spec["k"])
+                         tcfg["model"], device, spec["force"], k_override=spec["k"])
     return f"{spec['dataset']}_{spec['task']}/{m['run']}_s{spec['seed']}: macro-F1 {m['test']['macro_f1']:.4f}"
 
 
