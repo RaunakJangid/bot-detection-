@@ -111,6 +111,34 @@ def test_resilience_reports():
     assert Topology("p", G, np.zeros((6, 2))).n == 6
 
 
+def test_zoo_download_falls_back_and_validates(tmp_path, monkeypatch):
+    import shield.placement.topology as T
+    # Three "mirrors": the first has no file, the second a drawing-only file (pixel x/y, no
+    # Latitude/Longitude), the third the real file. Only the third may be accepted.
+    dead, drawing, good = (tmp_path / d for d in ("dead", "drawing", "good"))
+    for d in (dead, drawing, good):
+        d.mkdir()
+    H = nx.Graph()
+    H.add_node("a", x=1.0, y=2.0)
+    nx.write_graphml(H, drawing / "Net.graphml")
+    G = nx.Graph()
+    G.add_node("a", Latitude=40.0, Longitude=-74.0)
+    G.add_node("b", Latitude=41.9, Longitude=-87.6)
+    G.add_edge("a", "b")
+    nx.write_graphml(G, good / "Net.graphml")
+    monkeypatch.setattr(T, "ZOO_URLS", tuple(d.as_uri() + "/{name}.graphml" for d in (dead, drawing, good)))
+    cache = tmp_path / "cache"
+    cache.mkdir()
+    (cache / "Net.graphml").write_text("<graphml truncated")  # broken cached copy must be replaced
+    topo = T.load_zoo("Net", cache)
+    assert topo.n == 2 and not list(cache.glob("*.part"))
+    assert topo.G.edges[0, 1]["delay"] == pytest.approx(T.haversine_km(40.0, -74.0, 41.9, -87.6) / T.KM_PER_MS)
+
+    monkeypatch.setattr(T, "ZOO_URLS", tuple(d.as_uri() + "/{name}.graphml" for d in (dead, drawing)))
+    with pytest.raises(RuntimeError, match="not a valid graphml"):
+        T.download_zoo("Net", tmp_path / "cache2")
+
+
 def test_holm():
     adj = holm([0.01, 0.04, 0.03])
     assert adj == pytest.approx([0.03, 0.06, 0.06])

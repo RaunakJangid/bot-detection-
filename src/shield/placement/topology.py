@@ -15,7 +15,13 @@ import numpy as np
 from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import dijkstra
 
-ZOO_URL = "http://www.topology-zoo.org/files/{name}.graphml"
+# Original site first, then the Internet Archive's byte-for-byte copy ("id_" = raw file) of the same URL,
+# because topology-zoo.org is often unreachable. (The authors' GitHub "sources" are yEd drawings with
+# pixel x/y, not the published Latitude/Longitude files, so they are not used.)
+ZOO_URLS = (
+    "http://www.topology-zoo.org/files/{name}.graphml",
+    "https://web.archive.org/web/2024id_/http://www.topology-zoo.org/files/{name}.graphml",
+)
 KM_PER_MS = 200.0  # light in fibre: ~2e8 m/s
 
 
@@ -42,12 +48,38 @@ def _largest_component_relabelled(G: nx.Graph) -> nx.Graph:
     return nx.convert_node_labels_to_integers(G.subgraph(comp).copy(), ordering="sorted")
 
 
-def download_zoo(name: str, cache_dir: Path) -> Path:
+def _valid_graphml(path: Path) -> bool:
+    """Parses, and has geographic coordinates (needed for link propagation delay)."""
+    try:
+        G = nx.read_graphml(path)
+        return any("Latitude" in d and "Longitude" in d for _, d in G.nodes(data=True))
+    except Exception:
+        return False
+
+
+def download_zoo(name: str, cache_dir: Path, timeout: float = 20.0, retries: int = 2) -> Path:
+    """Fetch <name>.graphml once. Writes to a temp file and renames only after it parses, so an
+    interrupted download never leaves a truncated file that later runs would trust."""
     path = cache_dir / f"{name}.graphml"
-    if not path.exists():
-        cache_dir.mkdir(parents=True, exist_ok=True)
-        urllib.request.urlretrieve(ZOO_URL.format(name=name), path)
-    return path
+    if path.exists() and _valid_graphml(path):
+        return path
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".graphml.part")
+    errors = []
+    for url in (u.format(name=name) for u in ZOO_URLS):
+        for attempt in range(1, retries + 1):
+            try:
+                with urllib.request.urlopen(url, timeout=timeout) as resp:
+                    tmp.write_bytes(resp.read())
+                if _valid_graphml(tmp):
+                    tmp.replace(path)
+                    return path
+                errors.append(f"{url}: not a valid graphml")
+                break
+            except OSError as exc:
+                errors.append(f"{url} (attempt {attempt}): {exc}")
+    tmp.unlink(missing_ok=True)
+    raise RuntimeError(f"Could not download Topology Zoo graph {name!r}:\n  " + "\n  ".join(errors))
 
 
 def load_zoo(name: str, cache_dir: Path) -> Topology:
