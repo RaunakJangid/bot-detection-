@@ -1,9 +1,13 @@
 seeds: [0, 1, 2, 3, 4]
 # Teacher seed whose cache and SHAP ranking every student uses.
 teacher_seed: 0
-k: 16                     # features kept by every selection method; "k95" uses the SHAP 95% cutoff
+k: 16                     # default features per selection method (overridden per task by tuning)
 student: {hidden: [64, 32]}
-loss: {T: 4.0, alpha: 0.3, beta: 0.7, gamma: 0.1}
+# Defaults; `objective` from tuning (outputs/tuning/kd_choice.json) overrides kd/T/alpha/beta/dkd_*/teacher.
+# L = alpha*CE + beta*distill + gamma*(1 - cos(attribution of the teacher's predicted class))
+# distill = T^2 KL (kd) or dkd_alpha*TCKD + dkd_beta*NCKD (Decoupled KD, Zhao et al. CVPR 2022).
+loss: {kd: kd, T: 4.0, alpha: 0.3, beta: 0.7, gamma: 0.1, dkd_alpha: 1.0, dkd_beta: 8.0}
+use_tuning: true
 # Ablation variants: selection method + which loss terms are on.
 variants:
   scratch_all:    {select: all,    alpha: 1.0, beta: 0.0, gamma: 0.0}
@@ -13,6 +17,25 @@ variants:
   kd_random:      {select: random,                         gamma: 0.0}
   kd_mi:          {select: mi,                             gamma: 0.0}
   kd_variance:    {select: variance,                       gamma: 0.0}
+# Teacher assistant (TAKD): a mid-size model distilled from the teacher, cached, then used as the
+# students' teacher when tuning picks `teacher: assistant`.
+assistant: {select: all, hidden: [256, 128], gamma: 0.0, teacher: teacher}
+# Low-data distillation (e2KD: explanation matching matters most with little data).
+lowdata:
+  fractions: [0.001, 0.01, 0.1]
+  variants: [kd_shap, shield]
+  min_epoch_samples: 100000   # epochs re-sample the small training set up to this many rows
+# Validation-only tuning on the main datasets, seed 0 (scripts/05a_tune_kd.py).
+tuning:
+  seed: 0
+  objective:
+    kd: {T: [1.0, 2.0, 4.0], alpha: [0.3, 0.7]}
+    dkd: {T: [1.0, 2.0, 4.0], dkd_beta: [2.0, 8.0]}
+  features:
+    ranking: [global, class_balanced]
+    k: [8, 12, 16, 24, 32]
+    hidden: [[64, 32], [128, 64]]
+  tolerance: 0.005            # choose the cheapest (k, size) within this validation macro-F1 of the best
 train:
   epochs: 30
   batch_size: 4096
@@ -48,3 +71,10 @@ smoke:
   jobs: 1
   mi_sample: 2000
   fidelity: {n_explain: 200, nsamples: 20, batch_size: 100}
+  assistant: {hidden: [32, 16]}
+  lowdata: {fractions: [0.05], min_epoch_samples: 2000}
+  tuning:
+    objective:
+      kd: {T: [4.0], alpha: [0.3]}
+      dkd: {T: [4.0], dkd_beta: [8.0]}
+    features: {k: [4, 8], hidden: [[64, 32]]}

@@ -5,8 +5,20 @@ pairs:
   - [xciciomt, xciciot]
 tasks: [binary, shared5]
 zero_shot_models: [teacher, xgboost, scratch_all, kd_all, kd_shap, shield]
+# Unsupervised adaptation baselines (no target labels):
+#   target  - re-standardise with the target's own statistics (first-order alignment)
+#   coral   - CORAL: match target feature covariance to the source's (Sun et al. 2016)
+#   dann    - DANN: fine-tune the student with a gradient-reversal domain discriminator (Ganin et al. 2016)
+coral: {sample_rows: 200000, eps: 1.0e-3}
+dann:
+  models: [shield, kd_all]
+  steps: 3000
+  batch_size: 1024
+  lr: 1.0e-3
+  source_rows: 500000
+  target_rows: 500000
 # Target-normalised fine-tuning with a small labelled share of the target training split.
-fewshot_models: [shield, kd_all]
+fewshot_models: [shield, kd_shap, kd_all]
 fractions: [0.001, 0.01, 0.05, 0.10]
 finetune: {epochs: 10, min_steps: 300, lr: 1.0e-3, batch_size: 1024, weight_decay: 1.0e-5}
 # Never-seen attack families in the target (binary detector only): base dataset + its finest task.
@@ -17,3 +29,5 @@ unseen:
 smoke:
   fractions: [0.05]
   finetune: {epochs: 2, min_steps: 20}
+  coral: {sample_rows: 2000}
+  dann: {steps: 30, source_rows: 2000, target_rows: 2000}

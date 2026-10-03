@@ -11,9 +11,10 @@ from shield.utils.config import Paths
 HERE = Path(__file__).resolve().parent
 STEPS = [
     ["01_ingest.py"], ["02_preprocess.py"], ["02b_leakage_audit.py"], ["03_train_teacher.py"],
-    ["03b_xgboost.py"], ["03c_baselines.py"], ["04_shap.py"], ["05_cache_teacher.py"], ["05_distill.py"],
-    ["05_distill.py", "--k-sweep"], ["06_latency.py"], ["07_placement.py"], ["07b_coupled.py"],
-    ["09_cross_dataset.py"], ["08_make_figures.py"],
+    ["03b_xgboost.py"], ["03c_baselines.py"], ["04_shap.py"], ["05_cache_teacher.py"], ["05a_tune_kd.py"],
+    ["05_distill.py"], ["05_distill.py", "--k-sweep"], ["05_distill.py", "--low-data"], ["06_latency.py"],
+    ["07a_tune_placement.py"], ["07_placement.py"], ["07b_coupled.py"], ["09_cross_dataset.py"],
+    ["08_make_figures.py"],
 ]
 
 
@@ -32,6 +33,10 @@ def expected(paths: Paths) -> list[str]:
         f"{o}/cross/unseen_runs.csv", f"{o}/paper/tables/*.csv", f"{o}/paper/figures/*.png",
         f"{o}/paper/figures/cd_kd_ablation.png", f"{o}/paper/figures/cd_placement.png",
         f"{o}/paper/tables/leakage_inflation.csv",
+        f"{o}/tuning/kd_choice.json", f"{o}/kd/*/shield_f*_s*/metrics.json", f"{o}/placement/tuned_params.json",
+        f"{o}/paper/tables/kd_tuning_choice.csv", f"{o}/paper/tables/lowdata_wilcoxon.csv",
+        f"{o}/paper/figures/lowdata_macro_f1.png", f"{o}/paper/tables/placement_ablation.csv",
+        f"{o}/paper/tables/placement_tuning.csv",
     ]
 
 

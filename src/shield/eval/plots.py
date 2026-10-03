@@ -12,7 +12,8 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 
-PALETTE = {"hybrid_eho_aco": "#d1495b", "eho": "#edae49", "aco": "#00798c", "ga": "#30638e",
+PALETTE = {"hybrid_eho_aco": "#d1495b", "hybrid_no_ants": "#f28482", "hybrid_no_ls": "#9c2c3c",
+           "hybrid_swap_ls": "#e07a5f", "eho": "#edae49", "aco": "#00798c", "ga": "#30638e",
            "pso": "#7b2d8e", "sa": "#66a182", "random": "#8d96a3", "kmeans": "#5c4d3c",
            "kmedian": "#2e4057", "kcenter": "#a3a380", "pagerank": "#c08497", "ilp_ckm": "#000000"}
 
@@ -188,6 +189,31 @@ def fewshot_curves(fs: pd.DataFrame, zs: pd.DataFrame, out_dir: Path) -> None:
         ax.set_xscale("log"); ax.set_xlabel("labelled target training data (%)"); ax.set_ylabel("target macro-F1 (%)")
         ax.set_title(f"{src} → {tgt}, {task}", fontsize=10); ax.grid(alpha=0.3, which="both"); ax.legend(fontsize=7)
         save(fig, out_dir / f"fewshot_{src}_to_{tgt}_{task}")
+
+
+def lowdata_curves(runs: pd.DataFrame, out_dir: Path) -> None:
+    """Macro-F1 and student-teacher agreement vs share of training data: SHIELD vs kd_shap."""
+    if runs.empty:
+        return
+    for metric, label in (("macro_f1", "test macro-F1 (%)"), ("agreement", "agreement with teacher (%)")):
+        tasks = runs[["dataset", "task"]].drop_duplicates().itertuples(index=False)
+        tasks = list(tasks)
+        cols = min(4, len(tasks))
+        rows = -(-len(tasks) // cols)
+        fig, axes = plt.subplots(rows, cols, figsize=(3.6 * cols, 2.9 * rows), squeeze=False)
+        for ax, (ds, task) in zip(axes.flat, tasks):
+            g = runs[(runs.dataset == ds) & (runs.task == task)]
+            for v, h in g.groupby("variant"):
+                s = h.groupby("fraction")[metric].agg(["mean", "std"]).reset_index()
+                ax.errorbar(100 * s["fraction"], 100 * s["mean"], yerr=100 * s["std"].fillna(0), marker="o", capsize=2,
+                            label=v, color="#d1495b" if v == "shield" else "#30638e")
+            ax.set_xscale("log"); ax.set_title(f"{ds}/{task}", fontsize=8); ax.grid(alpha=0.3, which="both")
+            ax.tick_params(labelsize=7)
+        for ax in list(axes.flat)[len(tasks):]:
+            ax.axis("off")
+        axes.flat[0].legend(fontsize=7)
+        fig.supxlabel("training data used (%)", fontsize=9); fig.supylabel(label, fontsize=9)
+        save(fig, out_dir / f"lowdata_{metric}")
 
 
 def inflation_bars(df: pd.DataFrame, out: Path) -> None:

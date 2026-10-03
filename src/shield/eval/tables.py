@@ -39,9 +39,13 @@ def detection_table(paths: Paths, dataset: str, task: str, teacher_model: str, v
             return
         r = _metric_rows(files, key)
         L = load_json(files[0]) if own_cost else lat.get(lat_key or name, {})
-        fid = [f["spearman"] for f in (load_json(p).get("fidelity") for p in files) if f]
+        loaded = [load_json(p) for p in files]
+        fid = [m["fidelity"]["spearman"] for m in loaded if m.get("fidelity")]
+        agr_key = "teacher_int8" if key == "test_int8" else "teacher"
+        agr = [m["agreement"][agr_key] for m in loaded if m.get("agreement")]
         rows.append({"model": name, "runs": len(files), "k": k,
                      "macro_f1": _pm(r["macro_f1"]), "accuracy": _pm(r["accuracy"]), "mcc": _pm(r["mcc"], 1.0, 4),
+                     "teacher_agreement": _pm(agr) if agr else None,
                      "shap_fidelity": round(float(np.mean(fid)), 3) if fid else None,
                      "params": params or L.get("params"), "size_kb": L.get("size_kb"),
                      "cpu_latency_b1_ms": L.get("latency_b1_ms"), "cpu_flows_per_s": L.get("throughput_b256")})
@@ -96,6 +100,54 @@ def inflation_table(paths: Paths, pairs: list[tuple[str, str, str]], teacher_mod
                 rows.append({"dataset": strict, "task": task, "model": model, "strict": a, "standard": b,
                              "inflation_points": round(100 * (b - a), 2)})
     return pd.DataFrame(rows)
+
+
+def lowdata_runs(paths: Paths, datasets_tasks: list[tuple[str, str]], variants: list[str],
+                 fractions: list[float]) -> pd.DataFrame:
+    """One row per low-data run (variant trained on a fraction of the training split)."""
+    rows = []
+    for ds, task in datasets_tasks:
+        for v in variants:
+            for frac in fractions:
+                for f in (paths.outputs / "kd" / f"{ds}_{task}").glob(f"{v}_f{frac}_s*/metrics.json"):
+                    m = load_json(f)
+                    rows.append({"dataset": ds, "task": task, "variant": v, "fraction": float(frac), "seed": m["seed"],
+                                 "macro_f1": m["test"]["macro_f1"], "agreement": m["agreement"]["teacher"],
+                                 "train_rows": m.get("train_rows")})
+    return pd.DataFrame(rows)
+
+
+def lowdata_tests(runs: pd.DataFrame, ours: str = "shield", base: str = "kd_shap") -> pd.DataFrame:
+    """Per fraction: paired (dataset, task, seed) one-sided Wilcoxon of ours > base, on macro-F1 and agreement."""
+    from scipy.stats import wilcoxon
+    out = []
+    for frac, g in runs.groupby("fraction"):
+        piv = g.pivot_table(index=["dataset", "task", "seed"], columns="variant", values=["macro_f1", "agreement"])
+        for metric in ("macro_f1", "agreement"):
+            if (metric, ours) not in piv or (metric, base) not in piv:
+                continue
+            a, b = piv[(metric, ours)].dropna(), piv[(metric, base)].dropna()
+            common = a.index.intersection(b.index)
+            d = (a.loc[common] - b.loc[common]).to_numpy()
+            p = (float(wilcoxon(d, alternative="greater", zero_method="zsplit").pvalue)
+                 if len(d) >= 2 and not np.allclose(d, 0) else None)
+            out.append({"fraction": frac, "metric": metric, "pairs": len(d), "mean_diff_points": 100 * float(d.mean()),
+                        "wins": int((d > 0).sum()), "p_one_sided": p})
+    return pd.DataFrame(out)
+
+
+def kd_tuning_tables(paths: Paths) -> tuple[pd.DataFrame, pd.DataFrame] | None:
+    f = paths.outputs / "tuning" / "kd_choice.json"
+    if not f.exists():
+        return None
+    c = load_json(f)
+    obj = pd.DataFrame([{"setting": k, **v, "mean_val_macro_f1": float(np.mean(list(v.values())))}
+                        for k, v in c["objective_scores"].items()]).sort_values("mean_val_macro_f1", ascending=False)
+    per_task = pd.DataFrame([{"task": t, "k": v["k"], "hidden": "-".join(map(str, v["hidden"]))}
+                             for t, v in c["per_task"].items()])
+    per_task["ranking"] = c["ranking"]
+    per_task["objective"] = str(c["objective"])
+    return obj, per_task
 
 
 def save_table(df: pd.DataFrame, out: Path, caption: str) -> None:

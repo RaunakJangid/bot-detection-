@@ -6,7 +6,8 @@ import pandas as pd
 from shield.cli import parser, paths_for, registry, selected_datasets
 from shield.eval import plots
 from shield.eval.stats import nemenyi_cd, ranks_and_friedman
-from shield.eval.tables import detection_table, inflation_table, k_sweep_table, kd_rank_table, save_table
+from shield.eval.tables import (detection_table, inflation_table, k_sweep_table, kd_rank_table, kd_tuning_tables,
+                                lowdata_runs, lowdata_tests, save_table)
 from shield.utils.config import load_config
 from shield.utils.io import load_json, read_jsonl, save_json
 from shield.utils.logging import get_logger
@@ -45,8 +46,24 @@ def detection(paths, out, args, reg):
                 plots.f1_vs_k(ks, out / "figures" / f"f1_vs_k_{key}", key, teacher_f1)
             log.info("detection %s: %d rows", key, len(df))
 
-    # Critical-difference diagram of the KD ablation over every (main dataset, task, seed) block.
     main_tasks = [(ds, t) for ds in reg.resolve("main") for t in reg.tasks(ds)]
+    # Validation-only tuning choices (objective, ranking, per-task k / size).
+    tuned = kd_tuning_tables(paths)
+    if tuned is not None:
+        save_table(tuned[0], out / "tables" / "kd_tuning_objective", "Validation macro-F1 per distillation objective")
+        save_table(tuned[1], out / "tables" / "kd_tuning_choice", "Per-task feature budget chosen on validation")
+    # Low-data distillation: SHIELD (explanation alignment) vs kd_shap.
+    low = lowdata_runs(paths, main_tasks, kcfg["lowdata"]["variants"], kcfg["lowdata"]["fractions"])
+    if not low.empty:
+        summary = (low.groupby(["dataset", "task", "fraction", "variant"])[["macro_f1", "agreement"]]
+                   .agg(["mean", "std"]).reset_index())
+        summary.columns = ["_".join(c).strip("_") for c in summary.columns]
+        save_table(summary, out / "tables" / "lowdata_summary", "Low-data distillation, mean and std over seeds")
+        save_table(lowdata_tests(low), out / "tables" / "lowdata_wilcoxon",
+                   "SHIELD vs kd_shap by training-data share (paired one-sided Wilcoxon)")
+        plots.lowdata_curves(low, out / "figures")
+
+    # Critical-difference diagram of the KD ablation over every (main dataset, task, seed) block.
     table = kd_rank_table(paths, main_tasks, list(kcfg["variants"]))
     if not table.empty:
         table = table.dropna(axis=1, thresh=max(1, int(0.8 * len(table)))).dropna()
@@ -92,6 +109,18 @@ def placement(paths, out, args):
             agg = w.groupby("vs").agg(instances=("p", "size"), significant=("p_holm", lambda p: int((p < 0.05).sum())),
                                       wins=("wins", "sum"), ties=("ties", "sum"), losses=("losses", "sum")).reset_index()
             save_table(agg, out / "tables" / "placement_wilcoxon", "Hybrid EHO-ACO vs baselines (Wilcoxon, Holm)")
+    # Component ablation of the hybrid + the fair tuning outcome.
+    abl = [a for a in ("hybrid_eho_aco", "hybrid_no_ants", "hybrid_no_ls", "hybrid_swap_ls", "eho", "aco", "sa")
+           if a in set(summary.algorithm)]
+    cols = ["F_mean"] + (["gap_pct"] if "gap_pct" in summary else [])
+    ab = summary[summary.algorithm.isin(abl)].groupby("algorithm")[cols].mean().reindex(abl).reset_index()
+    save_table(ab, out / "tables" / "placement_ablation", "Hybrid component ablation (mean over instances)")
+    if (pdir / "tuned_params.json").exists():
+        tp = load_json(pdir / "tuned_params.json")
+        save_table(pd.DataFrame([{"algorithm": a, "score": v["score"], "default_score": v.get("default_score"),
+                                  "params": str(v["params"]), "inherited_from": v.get("inherited_from")}
+                                 for a, v in tp.items() if not a.startswith("_")]),
+                   out / "tables" / "placement_tuning", "Tuned settings (score = mean F / best F on tuning graphs)")
     if (pdir / "friedman.json").exists():
         fr = load_json(pdir / "friedman.json")
         plots.cd_diagram(pd.Series(fr["average_rank"]), fr.get("nemenyi_cd"), out / "figures" / "cd_placement",
@@ -115,8 +144,11 @@ def coupled(paths, out):
     if not (cdir / "min_controllers.csv").exists():
         return
     mink = pd.read_csv(cdir / "min_controllers.csv").set_index(["topology", "rho"])
-    save_table(mink.reset_index(), out / "tables" / "coupled_min_controllers",
-               "Controllers needed to meet the SLA, per detector")
+    meta = load_json(cdir / "coupled_meta.json")
+    tab = mink.reset_index()
+    if isinstance(meta.get("sla_ms"), dict):
+        tab.insert(1, "sla_ms", tab["topology"].map(meta["sla_ms"]).round(2))
+    save_table(tab, out / "tables" / "coupled_min_controllers", "Controllers needed to meet the SLA, per detector")
     plots.coupled_bars(mink, out / "figures" / "coupled_min_controllers", load_json(cdir / "coupled_meta.json")["k_max"])
 
 
@@ -125,9 +157,11 @@ def cross(paths, out):
     if not (cdir / "zero_shot_runs.csv").exists():
         return
     zs = pd.read_csv(cdir / "zero_shot_runs.csv")
-    tab = (zs.groupby(["source", "target", "task", "model", "norm"])
-             .agg(in_domain=("in_domain_macro_f1", "mean"), zero_shot=("macro_f1", "mean"),
-                  zero_shot_std=("macro_f1", "std"), oracle=("oracle_macro_f1", "mean")).reset_index())
+    agg = dict(in_domain=("in_domain_macro_f1", "mean"), zero_shot=("macro_f1", "mean"),
+               zero_shot_std=("macro_f1", "std"), oracle=("oracle_macro_f1", "mean"))
+    if "agreement_teacher" in zs:
+        agg["agreement_teacher"] = ("agreement_teacher", "mean")
+    tab = zs.groupby(["source", "target", "task", "model", "norm"]).agg(**agg).reset_index()
     tab["drop_points"] = 100 * (tab["in_domain"] - tab["zero_shot"])
     save_table(tab, out / "tables" / "cross_zero_shot", "Cross-dataset zero-shot macro-F1")
     if (cdir / "fewshot_runs.csv").exists():

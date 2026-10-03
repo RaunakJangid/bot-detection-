@@ -19,9 +19,32 @@ from shield.placement.objective import Instance, PlacementProblem, make_demand
 from shield.placement.topology import Topology, get_topology, latency_matrix
 from shield.utils.io import load_json
 
-STOCHASTIC = ["hybrid_eho_aco", "eho", "aco", "ga", "pso", "sa", "random", "kmeans"]
+# Full memetic hybrid and its component ablations (each switches exactly one part).
+HYBRID_VARIANTS = {
+    "hybrid_eho_aco": {},
+    "hybrid_no_ants": {"separation": "random"},   # EHO restarts instead of ACO ants
+    "hybrid_no_ls": {"local_search": "none"},     # no intensification
+    "hybrid_swap_ls": {"local_search": "swap"},   # v1's 1-swap search instead of SA intensification
+}
+STOCHASTIC = [*HYBRID_VARIANTS, "eho", "aco", "ga", "pso", "sa", "random", "kmeans"]
 DETERMINISTIC = ["kmedian", "kcenter", "pagerank", "ilp_ckm"]
 DEMAND_SEED = 7  # demand pattern is part of the instance, identical for every algorithm and run
+
+
+def with_params(cfg: dict, params: dict) -> dict:
+    """Copy of cfg with {"section.key": value} overrides applied (tuned algorithm settings)."""
+    out = {k: (dict(v) if isinstance(v, dict) else v) for k, v in cfg.items()}
+    for dotted, value in params.items():
+        section, key = dotted.split(".", 1)
+        out[section] = {**out.get(section, {}), key: value}
+    return out
+
+
+def tuned_cfg(cfg: dict, algorithm: str, tuned: dict | None) -> dict:
+    """cfg with the algorithm's tuned settings (outputs/placement/tuned_params.json), if any."""
+    if not tuned or algorithm not in tuned:
+        return cfg
+    return with_params(cfg, tuned[algorithm]["params"])
 
 
 def controller_mu(cfg: dict, mu_flow: float) -> float:
@@ -60,8 +83,8 @@ def run_algorithm(name: str, problem: PlacementProblem, topo: Topology, cfg: dic
     k = problem.k
     ev = Evaluator(problem, budget or cfg["budget"])
     t0 = time.time()
-    if name == "hybrid_eho_aco":
-        run_hybrid(ev, k, cfg["hybrid"], cfg["aco"], rng)
+    if name in HYBRID_VARIANTS:
+        run_hybrid(ev, k, {**cfg["hybrid"], **HYBRID_VARIANTS[name]}, cfg["aco"], rng)
     elif name == "eho":
         run_eho(ev, k, cfg["hybrid"], rng)
     elif name == "aco":

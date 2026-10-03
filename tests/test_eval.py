@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from shield.cross.transfer import convert
+from shield.cross.transfer import convert, coral_map, dann_adapt
 from shield.eval.stats import nemenyi_cd, ranks_and_friedman
 
 
@@ -16,6 +16,28 @@ def test_ranks_direction():
     ranks, p = ranks_and_friedman(t, higher_is_better=True)
     assert list(ranks.index) == ["a", "c", "b"] and ranks["a"] == 1.0
     assert p is not None and 0 <= p <= 1
+
+
+def test_coral_matches_source_covariance():
+    rng = np.random.default_rng(0)
+    Xs = rng.multivariate_normal([0, 0, 0], [[1, 0.8, 0], [0.8, 1, 0], [0, 0, 2]], 20000)
+    Xt = rng.multivariate_normal([3, -1, 0], [[4, 0, 0], [0, 0.5, 0], [0, 0, 1]], 20000)
+    out = coral_map(Xt, Xs, Xt, eps=1e-6)
+    np.testing.assert_allclose(np.cov(out, rowvar=False), np.cov(Xs, rowvar=False), atol=0.05)
+    np.testing.assert_allclose(out.mean(0), Xs.mean(0), atol=0.05)
+
+
+def test_dann_adapt_runs_and_keeps_shape():
+    import torch
+    from shield.models.student import StudentMLP
+    torch.manual_seed(0)
+    rng = np.random.default_rng(0)
+    Xs, ys = rng.normal(size=(300, 5)).astype(np.float32), rng.integers(0, 3, 300)
+    Xt = (rng.normal(size=(300, 5)) + 1.5).astype(np.float32)
+    m = StudentMLP(5, 3, [16, 8])
+    out = dann_adapt(m, Xs, ys, Xt, {"steps": 20, "batch_size": 64, "lr": 1e-3}, torch.device("cpu"), seed=0)
+    assert out(torch.as_tensor(Xt)).shape == (300, 3)
+    assert any(not torch.equal(a, b) for a, b in zip(m.state_dict().values(), out.state_dict().values()))
 
 
 def test_convert_restandardises_exactly():

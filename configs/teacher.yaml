@@ -4,7 +4,7 @@ model: resmlp            # resmlp | ftt
 resmlp: {width: 384, depth: 4, dropout: 0.2}
 ftt: {d_token: 64, n_layers: 3, n_heads: 8, dropout: 0.1}
 train:
-  epochs: 40
+  epochs: 80             # early stopping on validation macro-F1 still decides (v1's cap of 40 cut CICIoMT short)
   batch_size: 8192
   lr: 2.0e-3
   weight_decay: 1.0e-4
