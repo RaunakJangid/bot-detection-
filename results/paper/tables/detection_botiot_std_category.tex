@@ -1,0 +1,12 @@
+\begin{table}
+\caption{Detection results, botiot_std_category}
+\begin{tabular}{lrrlllrrlll}
+\toprule
+model & runs & k & macro_f1 & accuracy & mcc & shap_fidelity & params & size_kb & cpu_latency_b1_ms & cpu_flows_per_s \\
+\midrule
+teacher & 1 & -- & 91.78 & 98.13 & 0.9642 & -- & 1.203e+06 & -- & -- & -- \\
+shield & 1 & 16 & 85.64 & 94.31 & 0.8910 & 0.394 & -- & -- & -- & -- \\
+shield_int8 & 1 & 16 & 71.71 & 86.44 & 0.7403 & 0.394 & -- & -- & -- & -- \\
+\bottomrule
+\end{tabular}
+\end{table}

@@ -1,0 +1,4 @@
+model,runs,k,macro_f1,accuracy,mcc,shap_fidelity,params,size_kb,cpu_latency_b1_ms,cpu_flows_per_s
+teacher,1,,71.89,76.02,0.6990,,1211539.0,,,
+shield,1,16.0,66.81,77.76,0.7159,0.853,,,,
+shield_int8,1,16.0,58.76,65.86,0.5665,0.853,,,,

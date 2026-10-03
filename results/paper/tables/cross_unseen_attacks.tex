@@ -1,0 +1,57 @@
+\begin{table}
+\caption{Detection rate of never-seen attack families}
+\begin{tabular}{lllllr}
+\toprule
+source & target & model & norm & family & detection_rate \\
+\midrule
+xciciomt & xciciot & kd_all & source & BruteForce & 0.3119 \\
+xciciomt & xciciot & kd_all & source & Mirai & 0.9954 \\
+xciciomt & xciciot & kd_all & source & Web & 0.1621 \\
+xciciomt & xciciot & kd_all & target & BruteForce & 0.1797 \\
+xciciomt & xciciot & kd_all & target & Mirai & 0.9927 \\
+xciciomt & xciciot & kd_all & target & Web & 0.1904 \\
+xciciomt & xciciot & kd_shap & source & BruteForce & 0.1073 \\
+xciciomt & xciciot & kd_shap & source & Mirai & 0.9579 \\
+xciciomt & xciciot & kd_shap & source & Web & 0.1153 \\
+xciciomt & xciciot & kd_shap & target & BruteForce & 0.04746 \\
+xciciomt & xciciot & kd_shap & target & Mirai & 0.8516 \\
+xciciomt & xciciot & kd_shap & target & Web & 0.1 \\
+xciciomt & xciciot & scratch_all & source & BruteForce & 0.4192 \\
+xciciomt & xciciot & scratch_all & source & Mirai & 0.829 \\
+xciciomt & xciciot & scratch_all & source & Web & 0.2847 \\
+xciciomt & xciciot & scratch_all & target & BruteForce & 0.2045 \\
+xciciomt & xciciot & scratch_all & target & Mirai & 0.6345 \\
+xciciomt & xciciot & scratch_all & target & Web & 0.1723 \\
+xciciomt & xciciot & shield & source & BruteForce & 0.07006 \\
+xciciomt & xciciot & shield & source & Mirai & 0.996 \\
+xciciomt & xciciot & shield & source & Web & 0.08079 \\
+xciciomt & xciciot & shield & target & BruteForce & 0.03616 \\
+xciciomt & xciciot & shield & target & Mirai & 0.9997 \\
+xciciomt & xciciot & shield & target & Web & 0.08023 \\
+xciciomt & xciciot & teacher & source & BruteForce & 0.2949 \\
+xciciomt & xciciot & teacher & source & Mirai & 0.5155 \\
+xciciomt & xciciot & teacher & source & Web & 0.1085 \\
+xciciomt & xciciot & teacher & target & BruteForce & 0.04181 \\
+xciciomt & xciciot & teacher & target & Mirai & 0.8489 \\
+xciciomt & xciciot & teacher & target & Web & 0.06893 \\
+xciciomt & xciciot & xgboost & source & BruteForce & 0.2441 \\
+xciciomt & xciciot & xgboost & source & Mirai & 0.9985 \\
+xciciomt & xciciot & xgboost & source & Web & 0.2492 \\
+xciciomt & xciciot & xgboost & target & BruteForce & 0.7627 \\
+xciciomt & xciciot & xgboost & target & Mirai & 1 \\
+xciciomt & xciciot & xgboost & target & Web & 0.8475 \\
+xciciot & xciciomt & kd_all & source & MQTT & 0.9799 \\
+xciciot & xciciomt & kd_all & target & MQTT & 0.9986 \\
+xciciot & xciciomt & kd_shap & source & MQTT & 0.9851 \\
+xciciot & xciciomt & kd_shap & target & MQTT & 0.9969 \\
+xciciot & xciciomt & scratch_all & source & MQTT & 0.9841 \\
+xciciot & xciciomt & scratch_all & target & MQTT & 0.9992 \\
+xciciot & xciciomt & shield & source & MQTT & 0.9882 \\
+xciciot & xciciomt & shield & target & MQTT & 0.9978 \\
+xciciot & xciciomt & teacher & source & MQTT & 0.9808 \\
+xciciot & xciciomt & teacher & target & MQTT & 0.9877 \\
+xciciot & xciciomt & xgboost & source & MQTT & 0.9936 \\
+xciciot & xciciomt & xgboost & target & MQTT & 0.9999 \\
+\bottomrule
+\end{tabular}
+\end{table}

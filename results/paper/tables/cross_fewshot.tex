@@ -1,0 +1,73 @@
+\begin{table}
+\caption{Few-shot target macro-F1}
+\begin{tabular}{lllllrrr}
+\toprule
+source & target & task & model & kind & fraction & mean & std \\
+\midrule
+xciciomt & xciciot & binary & kd_all & finetuned & 0.001 & 0.8723 & 0.007243 \\
+xciciomt & xciciot & binary & kd_all & finetuned & 0.01 & 0.8963 & 0.007851 \\
+xciciomt & xciciot & binary & kd_all & finetuned & 0.05 & 0.9152 & 0.004023 \\
+xciciomt & xciciot & binary & kd_all & finetuned & 0.1 & 0.9227 & 0.001691 \\
+xciciomt & xciciot & binary & kd_all & scratch & 0.001 & 0.8765 & 0.006125 \\
+xciciomt & xciciot & binary & kd_all & scratch & 0.01 & 0.8872 & 0.001275 \\
+xciciomt & xciciot & binary & kd_all & scratch & 0.05 & 0.9128 & 0.001176 \\
+xciciomt & xciciot & binary & kd_all & scratch & 0.1 & 0.9202 & 0.001624 \\
+xciciomt & xciciot & binary & shield & finetuned & 0.001 & 0.8732 & 0.003613 \\
+xciciomt & xciciot & binary & shield & finetuned & 0.01 & 0.8937 & 0.005605 \\
+xciciomt & xciciot & binary & shield & finetuned & 0.05 & 0.9063 & 0.0114 \\
+xciciomt & xciciot & binary & shield & finetuned & 0.1 & 0.9134 & 0.002224 \\
+xciciomt & xciciot & binary & shield & scratch & 0.001 & 0.8814 & 0.004592 \\
+xciciomt & xciciot & binary & shield & scratch & 0.01 & 0.8908 & 0.0009903 \\
+xciciomt & xciciot & binary & shield & scratch & 0.05 & 0.9028 & 0.003271 \\
+xciciomt & xciciot & binary & shield & scratch & 0.1 & 0.9118 & 0.002706 \\
+xciciomt & xciciot & shared5 & kd_all & finetuned & 0.001 & 0.6684 & 0.009678 \\
+xciciomt & xciciot & shared5 & kd_all & finetuned & 0.01 & 0.6967 & 0.005746 \\
+xciciomt & xciciot & shared5 & kd_all & finetuned & 0.05 & 0.7346 & 0.006222 \\
+xciciomt & xciciot & shared5 & kd_all & finetuned & 0.1 & 0.7454 & 0.007605 \\
+xciciomt & xciciot & shared5 & kd_all & scratch & 0.001 & 0.5841 & 0.01976 \\
+xciciomt & xciciot & shared5 & kd_all & scratch & 0.01 & 0.6078 & 0.01235 \\
+xciciomt & xciciot & shared5 & kd_all & scratch & 0.05 & 0.7203 & 0.004564 \\
+xciciomt & xciciot & shared5 & kd_all & scratch & 0.1 & 0.7463 & 0.001549 \\
+xciciomt & xciciot & shared5 & shield & finetuned & 0.001 & 0.6656 & 0.01251 \\
+xciciomt & xciciot & shared5 & shield & finetuned & 0.01 & 0.6861 & 0.002385 \\
+xciciomt & xciciot & shared5 & shield & finetuned & 0.05 & 0.724 & 0.005692 \\
+xciciomt & xciciot & shared5 & shield & finetuned & 0.1 & 0.7345 & 0.002864 \\
+xciciomt & xciciot & shared5 & shield & scratch & 0.001 & 0.4912 & 0.05166 \\
+xciciomt & xciciot & shared5 & shield & scratch & 0.01 & 0.5699 & 0.02709 \\
+xciciomt & xciciot & shared5 & shield & scratch & 0.05 & 0.712 & 0.003578 \\
+xciciomt & xciciot & shared5 & shield & scratch & 0.1 & 0.7327 & 0.003661 \\
+xciciot & xciciomt & binary & kd_all & finetuned & 0.001 & 0.9594 & 0.01074 \\
+xciciot & xciciomt & binary & kd_all & finetuned & 0.01 & 0.9666 & 0.009559 \\
+xciciot & xciciomt & binary & kd_all & finetuned & 0.05 & 0.9699 & 0.006187 \\
+xciciot & xciciomt & binary & kd_all & finetuned & 0.1 & 0.9664 & 0.002275 \\
+xciciot & xciciomt & binary & kd_all & scratch & 0.001 & 0.9554 & 0.007016 \\
+xciciot & xciciomt & binary & kd_all & scratch & 0.01 & 0.9651 & 0.001042 \\
+xciciot & xciciomt & binary & kd_all & scratch & 0.05 & 0.9645 & 0.002963 \\
+xciciot & xciciomt & binary & kd_all & scratch & 0.1 & 0.9629 & 0.00194 \\
+xciciot & xciciomt & binary & shield & finetuned & 0.001 & 0.9556 & 0.0007876 \\
+xciciot & xciciomt & binary & shield & finetuned & 0.01 & 0.9674 & 0.006335 \\
+xciciot & xciciomt & binary & shield & finetuned & 0.05 & 0.9708 & 0.005404 \\
+xciciot & xciciomt & binary & shield & finetuned & 0.1 & 0.9689 & 0.003757 \\
+xciciot & xciciomt & binary & shield & scratch & 0.001 & 0.9616 & 0.006169 \\
+xciciot & xciciomt & binary & shield & scratch & 0.01 & 0.9578 & 0.009868 \\
+xciciot & xciciomt & binary & shield & scratch & 0.05 & 0.9616 & 0.0009678 \\
+xciciot & xciciomt & binary & shield & scratch & 0.1 & 0.9613 & 0.000801 \\
+xciciot & xciciomt & shared5 & kd_all & finetuned & 0.001 & 0.6805 & 0.01979 \\
+xciciot & xciciomt & shared5 & kd_all & finetuned & 0.01 & 0.7191 & 0.02113 \\
+xciciot & xciciomt & shared5 & kd_all & finetuned & 0.05 & 0.7382 & 0.007303 \\
+xciciot & xciciomt & shared5 & kd_all & finetuned & 0.1 & 0.7514 & 0.00931 \\
+xciciot & xciciomt & shared5 & kd_all & scratch & 0.001 & 0.7033 & 0.05511 \\
+xciciot & xciciomt & shared5 & kd_all & scratch & 0.01 & 0.716 & 0.06997 \\
+xciciot & xciciomt & shared5 & kd_all & scratch & 0.05 & 0.7388 & 0.01862 \\
+xciciot & xciciomt & shared5 & kd_all & scratch & 0.1 & 0.7481 & 0.0111 \\
+xciciot & xciciomt & shared5 & shield & finetuned & 0.001 & 0.6844 & 0.02149 \\
+xciciot & xciciomt & shared5 & shield & finetuned & 0.01 & 0.713 & 0.02628 \\
+xciciot & xciciomt & shared5 & shield & finetuned & 0.05 & 0.7509 & 0.007635 \\
+xciciot & xciciomt & shared5 & shield & finetuned & 0.1 & 0.7597 & 0.005669 \\
+xciciot & xciciomt & shared5 & shield & scratch & 0.001 & 0.6711 & 0.06676 \\
+xciciot & xciciomt & shared5 & shield & scratch & 0.01 & 0.6652 & 0.03031 \\
+xciciot & xciciomt & shared5 & shield & scratch & 0.05 & 0.7442 & 0.02552 \\
+xciciot & xciciomt & shared5 & shield & scratch & 0.1 & 0.7468 & 0.01513 \\
+\bottomrule
+\end{tabular}
+\end{table}
