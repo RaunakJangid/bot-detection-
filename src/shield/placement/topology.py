@@ -6,6 +6,7 @@ Every topology is a connected nx.Graph on nodes 0..n-1 with a per-edge `delay` i
 from __future__ import annotations
 
 import math
+import re
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
@@ -120,8 +121,14 @@ def synthetic_iot(n: int, seed: int | None = None, avg_degree: float = 5.0) -> T
 
 
 def get_topology(name: str, cache_dir: Path) -> Topology:
-    if name.startswith("syn"):
-        return synthetic_iot(int(name[3:]))
+    """'syn<n>' = synthetic graph with seed n (evaluation); 'syn<n>s<seed>' = another draw (tuning graphs);
+    anything else = a Topology Zoo network."""
+    m = re.fullmatch(r"syn(\d+)(?:s(\d+))?", name)
+    if m:
+        n = int(m.group(1))
+        topo = synthetic_iot(n, seed=int(m.group(2)) if m.group(2) else None)
+        topo.name = name
+        return topo
     return load_zoo(name, cache_dir)
 
 

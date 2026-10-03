@@ -9,8 +9,12 @@ k_max: 20
 models: [shield, shield_int8, teacher]
 runs: 3
 budget: 10000
-sla_target: 0.95               # fraction of switches within sla_ms ...
+sla_target: 0.95               # fraction of switches within the SLA ...
 require_failover: true         # ... also under the worst single-controller failure, with no overload
+# SLA per topology. "relative": slack x the `quantile` of switch-to-controller propagation latency of the
+# greedy k-median placement with k_ref controllers (no capacity limit). An absolute limit (placement.yaml
+# objective.sla_ms) is unreachable on continent-scale networks for any k, which hides the comparison.
+sla: {mode: relative, quantile: 0.95, slack: 1.25}
 workers: 16
 
 smoke:

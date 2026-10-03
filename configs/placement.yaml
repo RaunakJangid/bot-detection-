@@ -9,7 +9,9 @@ rho_values: [0.3, 0.5, 0.7, 0.9]
 # rho is swept only at this k; other k values use rho_default. null = full cross product.
 rho_sweep_k: 4
 rho_default: 0.5
-algorithms: [hybrid_eho_aco, eho, aco, ga, pso, sa, random, kmedian, kcenter, kmeans, pagerank, ilp_ckm]
+# hybrid_eho_aco = full memetic hybrid; hybrid_* = component ablations (each removes/replaces one part).
+algorithms: [hybrid_eho_aco, hybrid_no_ants, hybrid_no_ls, hybrid_swap_ls, eho, aco, ga, pso, sa, random,
+             kmedian, kcenter, kmeans, pagerank, ilp_ckm]
 
 controller:
   cores: 4
@@ -30,9 +32,12 @@ hybrid:
   clan_size: 8
   alpha: 0.5                   # clan update: fraction moved toward matriarch
   beta: 0.3                    # matriarch update: fraction moved toward clan consensus
-  ants_per_clan: 1             # worst elephants rebuilt by ants each generation
-  local_search_every: 10
-  local_search_evals: 40
+  ants_per_clan: 1             # worst elephants rebuilt by the separating operator each generation
+  separation: ants             # ants (ACO construction) | random (plain EHO restart)
+  local_search: sa             # sa (simulated-annealing intensification) | swap (first-improvement 1-swap) | none
+  local_search_every: 5        # generations between intensification phases
+  local_search_evals: 200      # evaluations per intensification phase
+  sa_t0_frac: 0.05             # SA start temperature as a fraction of the incumbent objective
 aco:
   n_ants: 20
   a: 1.0
@@ -42,6 +47,52 @@ aco:
 ga: {pop: 40, cx_rate: 0.9, mut_rate: 0.2, elite: 2, tournament: 3}
 pso: {swarm: 30, w: 0.4, c1: 0.3, c2: 0.3}
 sa: {t0_samples: 50, cooling: 0.999}
+# Fair automatic tuning of every metaheuristic (scripts/07a_tune_placement.py): the same number of
+# candidate settings per algorithm, scored on TUNING graphs that are never used for evaluation.
+tuning:
+  synthetic: [50, 100, 200]
+  seed_offset: 1000            # tuning graph syn<n> uses seed offset+n (evaluation graphs use seed n)
+  k_values: [4, 6]
+  rho: 0.7
+  runs: 3
+  candidates: 16               # default + 15 random draws from the space below
+  space:
+    hybrid_eho_aco:
+      hybrid.n_clans: [3, 5, 8]
+      hybrid.clan_size: [5, 8, 12]
+      hybrid.alpha: [0.3, 0.5, 0.7]
+      hybrid.beta: [0.1, 0.3, 0.5]
+      hybrid.local_search_every: [2, 5, 10]
+      hybrid.local_search_evals: [50, 200, 500]
+      hybrid.sa_t0_frac: [0.01, 0.05, 0.2]
+      aco.evaporation: [0.05, 0.1, 0.2, 0.4]
+      aco.b: [1.0, 2.0, 4.0]
+    eho:
+      hybrid.n_clans: [3, 5, 8]
+      hybrid.clan_size: [5, 8, 12]
+      hybrid.alpha: [0.3, 0.5, 0.7]
+      hybrid.beta: [0.1, 0.3, 0.5]
+    aco:
+      aco.n_ants: [10, 20, 40]
+      aco.a: [0.5, 1.0, 2.0]
+      aco.b: [1.0, 2.0, 4.0]
+      aco.evaporation: [0.05, 0.1, 0.2, 0.4]
+      aco.mask_quantile: [0.0, 0.05, 0.1]
+    ga:
+      ga.pop: [20, 40, 80]
+      ga.cx_rate: [0.6, 0.8, 0.95]
+      ga.mut_rate: [0.1, 0.2, 0.4]
+      ga.tournament: [2, 3, 5]
+    pso:
+      pso.swarm: [15, 30, 60]
+      pso.w: [0.2, 0.4, 0.6]
+      pso.c1: [0.1, 0.3, 0.5]
+      pso.c2: [0.1, 0.3, 0.5]
+    sa:
+      sa.t0_samples: [20, 50, 100]
+      sa.cooling: [0.995, 0.998, 0.999, 0.9995]
+  # Ablations reuse the tuned full hybrid's settings, so only the switched component differs.
+  inherit: {hybrid_no_ants: hybrid_eho_aco, hybrid_no_ls: hybrid_eho_aco, hybrid_swap_ls: hybrid_eho_aco}
 resilience:
   link_fail_fracs: [0.05, 0.10, 0.20]
   node_fail_fracs: [0.05, 0.10, 0.20]
@@ -61,3 +112,4 @@ smoke:
   rho_sweep_k: null
   resilience: {trials: 2, max_double: 5}
   ilp_time_limit: 10
+  tuning: {synthetic: [20], k_values: [2], runs: 1, candidates: 2}

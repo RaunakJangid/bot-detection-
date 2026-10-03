@@ -2,8 +2,9 @@
 
 For each direction source -> target and task (binary, shared5):
   * zero-shot: models trained on the source are tested on the target test split, with the target
-    standardised either by the source statistics ("source" norm, the naive deployment) or by the
-    target's own unlabelled training statistics ("target" norm, a label-free adaptation);
+    standardised by the source statistics ("source" norm, the naive deployment), by the target's own
+    unlabelled training statistics ("target" norm), or adapted without labels by CORAL ("coral") or
+    DANN ("dann", students only); student-teacher agreement is reported for every view;
   * few-shot: SHIELD / KD students are fine-tuned on a small labelled share of the target training
     split, against a student trained from scratch on the same rows (does transfer help?);
   * unseen attacks (binary): target attack families absent from the shared label space (MQTT for
@@ -108,6 +109,67 @@ def finetune(model: nn.Module, X: np.ndarray, y: np.ndarray, cfg: dict, device: 
     return model.eval()
 
 
+def _sqrtm(C: np.ndarray, inverse: bool = False) -> np.ndarray:
+    w, V = np.linalg.eigh(C)
+    w = np.clip(w, 1e-12, None)
+    return (V * (w ** (-0.5 if inverse else 0.5))) @ V.T
+
+
+def coral_map(X: np.ndarray, Xs: np.ndarray, Xt: np.ndarray, eps: float = 1e-3) -> np.ndarray:
+    """CORAL (Sun et al. 2016) without retraining: whiten target rows with the target covariance and
+    re-colour them with the source covariance, so the source model sees source-like second-order
+    statistics. X, Xs, Xt are in the source's normalisation; Xt are unlabelled target rows."""
+    ms, mt = Xs.mean(0), Xt.mean(0)
+    I = np.eye(Xs.shape[1])
+    A = _sqrtm(np.cov(Xt, rowvar=False) + eps * I, inverse=True) @ _sqrtm(np.cov(Xs, rowvar=False) + eps * I)
+    return ((np.asarray(X, dtype=np.float64) - mt) @ A + ms).astype(np.float32)
+
+
+class _GradReverse(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, x, lam):
+        ctx.lam = lam
+        return x.view_as(x)
+
+    @staticmethod
+    def backward(ctx, grad):
+        return -ctx.lam * grad, None
+
+
+def dann_adapt(student: nn.Module, Xs: np.ndarray, ys: np.ndarray, Xt: np.ndarray, cfg: dict,
+               device: torch.device, seed: int) -> nn.Module:
+    """DANN (Ganin et al. 2016): keep the source classification loss while a discriminator on the
+    student's last hidden layer, behind a gradient-reversal layer, makes source and target features
+    indistinguishable. Starts from the trained source student; target labels are never used."""
+    torch.manual_seed(seed)
+    model = copy.deepcopy(student).to(device).train()
+    layers = list(model.net)
+    features, head = nn.Sequential(*layers[:-1]), layers[-1]
+    disc = nn.Sequential(nn.Linear(head.in_features, 32), nn.ReLU(), nn.Linear(32, 1)).to(device)
+    opt = torch.optim.AdamW(list(model.parameters()) + list(disc.parameters()), lr=cfg["lr"])
+    Xs_t, ys_t = torch.as_tensor(Xs, device=device), torch.as_tensor(ys, dtype=torch.long, device=device)
+    Xt_t = torch.as_tensor(np.ascontiguousarray(Xt), device=device)
+    bs = min(cfg["batch_size"], len(ys), len(Xt))
+    ce, bce = nn.CrossEntropyLoss(), nn.BCEWithLogitsLoss()
+    dom = torch.cat([torch.zeros(bs, device=device), torch.ones(bs, device=device)])
+    g = torch.Generator(device=device).manual_seed(seed)
+    for step in range(cfg["steps"]):
+        lam = 2.0 / (1.0 + math.exp(-10.0 * step / cfg["steps"])) - 1.0
+        si = torch.randint(0, len(ys_t), (bs,), device=device, generator=g)
+        fs = features(Xs_t[si])
+        ft = features(Xt_t[torch.randint(0, len(Xt_t), (bs,), device=device, generator=g)])
+        d_logits = disc(_GradReverse.apply(torch.cat([fs, ft]), lam)).squeeze(1)
+        loss = ce(head(fs), ys_t[si]) + bce(d_logits, dom)
+        opt.zero_grad(set_to_none=True)
+        loss.backward()
+        opt.step()
+    return model.eval()
+
+
+def _agreement(logits: np.ndarray, teacher_pred: np.ndarray | None) -> dict:
+    return {} if teacher_pred is None else {"agreement_teacher": float((logits.argmax(1) == teacher_pred).mean())}
+
+
 def _metrics(y: np.ndarray, logits: np.ndarray, data: ProcessedData) -> dict:
     m = classification_metrics(y, logits, data.n_classes, data.classes, full=True)
     return {"macro_f1": m["macro_f1"], "accuracy": m["accuracy"], "mcc": m["mcc"],
@@ -150,15 +212,23 @@ def run_block(paths: Paths, cfg: dict, src: str, tgt: str, task: str, seed: int,
     if out.exists() and not force:
         return load_json(out)
     seed_everything(seed)
-    S = load_processed(paths.processed(src), task, splits=("test",))
+    S = load_processed(paths.processed(src), task, splits=("train", "test"))
     T = load_processed(paths.processed(tgt), task, splits=("train", "test"))
     if S.features != T.features or S.classes != T.classes:
         raise ValueError(f"{src} and {tgt} must share features and classes for task {task}")
-    te = T.splits["test"]
+    te, tr, s_tr = T.splits["test"], T.splits["train"], S.splits["train"]
+    rng = np.random.default_rng(seed)
+    # Unlabelled target training rows in the source's normalisation (for CORAL / DANN; labels unused).
+    t_idx = np.sort(rng.choice(len(tr.y), min(len(tr.y), max(cfg["coral"]["sample_rows"], cfg["dann"]["target_rows"])),
+                               replace=False))
+    Xt_unlab = convert(tr.X[t_idx], T.features, T.meta, S.features, S.meta)
     views = {"target": np.asarray(te.X), "source": convert(te.X, T.features, T.meta, S.features, S.meta)}
+    s_idx = np.sort(rng.choice(len(s_tr.y), min(len(s_tr.y), cfg["coral"]["sample_rows"]), replace=False))
+    views["coral"] = coral_map(views["source"], np.asarray(s_tr.X[s_idx]),
+                               Xt_unlab[:cfg["coral"]["sample_rows"]], cfg["coral"]["eps"])
     res = {"source": src, "target": tgt, "task": task, "seed": seed, "zero_shot": [], "fewshot": [], "unseen": []}
 
-    models = []
+    models, teacher_pred = [], {}
     for name in cfg["zero_shot_models"]:
         m = load_model(paths, name, src, task, seed if name != "xgboost" else 0, teacher_model, S.n_classes, device)
         if m is None:
@@ -168,12 +238,26 @@ def run_block(paths: Paths, cfg: dict, src: str, tgt: str, task: str, seed: int,
         oracle = load_model(paths, name, tgt, task, seed if name != "xgboost" else 0, teacher_model,
                             T.n_classes, device)
         for norm, X in views.items():
+            logits = m.logits(X, device)
+            if name == "teacher":
+                teacher_pred[norm] = logits.argmax(1)
             res["zero_shot"].append({"model": name, "norm": norm, "in_domain_macro_f1": m.in_domain(),
                                      "oracle_macro_f1": oracle.in_domain() if oracle else None,
-                                     **_metrics(te.y, m.logits(X, device), T)})
+                                     **_agreement(logits, teacher_pred.get(norm)), **_metrics(te.y, logits, T)})
 
-    tr = T.splits["train"]
-    rng = np.random.default_rng(seed)
+    # DANN: fine-tune the source student with a domain discriminator on unlabelled target rows.
+    dcfg = cfg["dann"]
+    ds_idx = stratified_sample(s_tr.y, min(len(s_tr.y), dcfg["source_rows"]), rng, min_per_class=5)
+    Xs_lab, ys_lab = np.asarray(s_tr.X[ds_idx]), s_tr.y[ds_idx]
+    for m in models:
+        if m.name not in dcfg["models"]:
+            continue
+        adapted = dann_adapt(m.obj, Xs_lab[:, m.cols], ys_lab, Xt_unlab[:dcfg["target_rows"]][:, m.cols], dcfg,
+                             device, seed)
+        logits = predict_logits(adapted, views["source"][:, m.cols], device)
+        res["zero_shot"].append({"model": m.name, "norm": "dann", "in_domain_macro_f1": m.in_domain(),
+                                 "oracle_macro_f1": None, **_agreement(logits, teacher_pred.get("source")),
+                                 **_metrics(te.y, logits, T)})
     students = [m for m in models if m.name in cfg["fewshot_models"]]
     for frac in cfg["fractions"]:
         n = max(int(frac * len(tr.y)), 5 * T.n_classes)

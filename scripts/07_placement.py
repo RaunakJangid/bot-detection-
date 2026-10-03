@@ -14,10 +14,11 @@ from shield.eval.resilience import betweenness, resilience_report
 from shield.eval.stats import friedman_ranks, nemenyi_cd, summarise, wilcoxon_vs
 from shield.placement.exact import brute_force
 from shield.placement.runner import (DETERMINISTIC, STOCHASTIC, build_problem, compress_history,
-                                     controller_mu, detector_mu_flow, run_algorithm, topology_and_latency)
+                                     controller_mu, detector_mu_flow, run_algorithm, topology_and_latency,
+                                     tuned_cfg)
 from shield.placement.topology import download_zoo
 from shield.utils.config import Paths, load_config
-from shield.utils.io import append_jsonl, read_jsonl, save_json
+from shield.utils.io import append_jsonl, load_json, read_jsonl, save_json
 from shield.utils.logging import get_logger
 
 log = get_logger("placement")
@@ -35,10 +36,11 @@ def instances(cfg: dict) -> list[tuple[str, int, float]]:
     return out
 
 
-def _init(smoke: bool, mu: float):
+def _init(smoke: bool, mu: float, tuned: dict | None):
     _W["cfg"] = load_config("placement", smoke)
     _W["paths"] = Paths(smoke)
     _W["mu"] = mu
+    _W["tuned"] = tuned
 
 
 @lru_cache(maxsize=64)
@@ -62,10 +64,11 @@ def _run(task: tuple) -> dict:
         r = brute_force(problem, cfg["brute_force_limit"])
         return {**base, "skipped": r is None, **({} if r is None else {
             "F_opt": r["best_F"], "best": r["best"], "evaluated": r["evaluated"], "seconds": r["seconds"]})}
-    res = run_algorithm(alg, problem, topo, cfg, seed)
+    res = run_algorithm(alg, problem, topo, tuned_cfg(cfg, alg, _W["tuned"]), seed)
     if res is None:
         return {**base, "skipped": True}
-    row = {**base, "skipped": False, **problem.describe(res.best), "best": res.best, "n_evals": res.n_evals,
+    row = {**base, "skipped": False, "tuned": bool(_W["tuned"] and alg in _W["tuned"]),
+           **problem.describe(res.best), "best": res.best, "n_evals": res.n_evals,
            "seconds": res.seconds, "history": compress_history(res.history, cfg["budget"])}
     edge_bc, node_bc = _bc(topo_name)
     rep = resilience_report(topo.G, problem, res.best, cfg["resilience"], seed, edge_bc, node_bc)
@@ -125,7 +128,12 @@ def main():
     mu_flow, source = detector_mu_flow(paths.outputs / "latency" / "latency.json", c.get("capacity_run"),
                                        c["capacity_model"], c["default_mu_flow"])
     mu = controller_mu(cfg, mu_flow)
-    save_json({"mu_flow": mu_flow, "mu_controller": mu, "source": source}, out_dir / "capacity.json")
+    tuned_file = out_dir / "tuned_params.json"
+    tuned = load_json(tuned_file) if tuned_file.exists() else None
+    if tuned is None:
+        log.warning("No tuned_params.json: every algorithm runs with its config defaults (run 07a_tune_placement.py)")
+    save_json({"mu_flow": mu_flow, "mu_controller": mu, "source": source, "tuned": tuned is not None},
+              out_dir / "capacity.json")
     log.info("Detector throughput %.0f flows/s/core (%s) -> controller mu %.0f flows/s", mu_flow, source, mu)
 
     if args.force:
@@ -153,7 +161,7 @@ def main():
 
     workers = args.workers or cfg["workers"]
     t0 = time.time()
-    with mp.get_context("spawn").Pool(workers, initializer=_init, initargs=(args.smoke, mu)) as pool:
+    with mp.get_context("spawn").Pool(workers, initializer=_init, initargs=(args.smoke, mu, tuned)) as pool:
         for i, row in enumerate(pool.imap_unordered(_run, opt_tasks), 1):
             append_jsonl(row, out_dir / "optimum.jsonl")
         for i, row in enumerate(pool.imap_unordered(_run, tasks), 1):

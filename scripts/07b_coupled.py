@@ -1,6 +1,7 @@
 """Coupling experiment: with demand fixed, how many controllers does each detector need to meet the SLA?
 
 A faster detector raises every controller's service rate mu_c, so fewer controllers carry the same load.
+The SLA is set per topology (coupled.yaml `sla`), and placements use the tuned hybrid EHO-ACO.
 """
 
 import multiprocessing as mp
@@ -8,7 +9,10 @@ import multiprocessing as mp
 import pandas as pd
 
 from shield.cli import parser, paths_for
-from shield.placement.runner import build_problem, controller_mu, run_algorithm, topology_and_latency
+from shield.placement.coupling import feasible, topology_sla
+from shield.placement.objective import make_demand
+from shield.placement.runner import (DEMAND_SEED, build_problem, controller_mu, run_algorithm, topology_and_latency,
+                                     tuned_cfg, with_params)
 from shield.placement.topology import download_zoo
 from shield.utils.config import Paths, load_config
 from shield.utils.io import append_jsonl, load_json, read_jsonl, save_json
@@ -18,24 +22,20 @@ log = get_logger("coupled")
 _W: dict = {}
 
 
-def _init(smoke: bool):
+def _init(smoke: bool, tuned: dict | None):
     _W["pcfg"] = load_config("placement", smoke)
     _W["ccfg"] = load_config("coupled", smoke)
     _W["paths"] = Paths(smoke)
-
-
-def feasible(d: dict, k: int, cfg: dict) -> bool:
-    ok = d["overload"] <= 1e-9 and d["pct_sla"] >= cfg["sla_target"]
-    if cfg["require_failover"]:
-        ok = ok and k > 1 and d["fail_overload"] <= 1e-9 and d["fail_pct_sla"] >= cfg["sla_target"]
-    return ok
+    _W["tuned"] = tuned
 
 
 def _run(task: tuple) -> dict:
-    topo_name, rho, model, k, mu, total = task
-    pcfg, ccfg = _W["pcfg"], _W["ccfg"]
+    topo_name, rho, model, k, mu, total, sla = task
+    pcfg = with_params(tuned_cfg(_W["pcfg"], "hybrid_eho_aco", _W["tuned"]), {"objective.sla_ms": sla})
+    ccfg = _W["ccfg"]
     topo, D = topology_and_latency(topo_name, str(_W["paths"].topologies))
-    base = {"topology": topo_name, "rho": rho, "model": model, "k": k, "mu_controller": mu, "total_demand": total}
+    base = {"topology": topo_name, "rho": rho, "model": model, "k": k, "mu_controller": mu, "total_demand": total,
+            "sla_ms": sla}
     if k >= topo.n:
         return {**base, "skipped": True}
     problem = build_problem(topo, D, k, total, mu, pcfg)
@@ -68,6 +68,15 @@ def main():
     for name in ccfg["topologies"]:
         if not name.startswith("syn"):
             download_zoo(name, paths.topologies)
+    tuned_file = paths.outputs / "placement" / "tuned_params.json"
+    tuned = load_json(tuned_file) if tuned_file.exists() else None
+
+    sla = {}
+    for topo in ccfg["topologies"]:
+        t, D = topology_and_latency(topo, str(paths.topologies))
+        lam = make_demand(t.n, 1.0, pcfg["demand_sigma"], DEMAND_SEED)  # only the shape matters for k-median
+        sla[topo] = topology_sla(D, lam, ccfg.get("sla", {}), ccfg["k_ref"], pcfg["objective"]["sla_ms"])
+    log.info("SLA per topology (ms): %s", {k: round(v, 2) for k, v in sla.items()})
 
     if args.force:
         (out_dir / "coupled.jsonl").unlink(missing_ok=True)
@@ -79,18 +88,23 @@ def main():
             for model in ccfg["models"]:
                 for k in range(1, ccfg["k_max"] + 1):
                     if (topo, float(rho), model, k) not in done:
-                        tasks.append((topo, float(rho), model, k, mu[model], total))
+                        tasks.append((topo, float(rho), model, k, mu[model], total, sla[topo]))
     log.info("Capacity source %s; mu_c: %s; %d tasks", run_key, {m: round(v) for m, v in mu.items()}, len(tasks))
-    with mp.get_context("spawn").Pool(ccfg["workers"], initializer=_init, initargs=(args.smoke,)) as pool:
+    with mp.get_context("spawn").Pool(ccfg["workers"], initializer=_init, initargs=(args.smoke, tuned)) as pool:
         for row in pool.imap_unordered(_run, tasks):
             append_jsonl(row, out_dir / "coupled.jsonl")
 
     df = pd.DataFrame([r for r in read_jsonl(out_dir / "coupled.jsonl") if not r.get("skipped")])
     df.drop(columns=["best"]).to_csv(out_dir / "coupled_all.csv", index=False)
+    # Every (topology, rho) appears; blank = no k <= k_max met the SLA.
+    full = pd.MultiIndex.from_product([ccfg["topologies"], [float(r) for r in ccfg["rho_values"]]],
+                                      names=["topology", "rho"])
     mink = (df[df.feasible].groupby(["topology", "rho", "model"])["k"].min()
-            .unstack("model").reindex(columns=ccfg["models"]))
+            .unstack("model").reindex(index=full, columns=ccfg["models"]))
     mink.to_csv(out_dir / "min_controllers.csv")
-    save_json({"run_key": run_key, "mu_controller": mu, "k_max": ccfg["k_max"]}, out_dir / "coupled_meta.json")
+    save_json({"run_key": run_key, "mu_controller": mu, "k_max": ccfg["k_max"], "sla_ms": sla,
+               "sla_rule": ccfg.get("sla"), "tuned_hybrid": bool(tuned and "hybrid_eho_aco" in tuned)},
+              out_dir / "coupled_meta.json")
     log.info("Minimum controllers meeting the SLA (blank = more than k_max):\n%s", mink.to_string())
 
 

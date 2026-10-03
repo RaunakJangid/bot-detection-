@@ -139,6 +139,64 @@ def test_zoo_download_falls_back_and_validates(tmp_path, monkeypatch):
         T.download_zoo("Net", tmp_path / "cache2")
 
 
+def test_with_params_and_tuned_cfg():
+    from shield.placement.runner import tuned_cfg, with_params
+    cfg = {"hybrid": {"n_clans": 5, "alpha": 0.5}, "aco": {"b": 2.0}, "budget": 10}
+    out = with_params(cfg, {"hybrid.n_clans": 8, "aco.b": 4.0})
+    assert out["hybrid"] == {"n_clans": 8, "alpha": 0.5} and out["aco"]["b"] == 4.0
+    assert cfg["hybrid"]["n_clans"] == 5  # original untouched
+    tuned = {"sa": {"params": {"sa.cooling": 0.99}}}
+    assert tuned_cfg({"sa": {"cooling": 0.999}}, "sa", tuned)["sa"]["cooling"] == 0.99
+    assert tuned_cfg(cfg, "ga", tuned) is cfg
+
+
+def test_tuning_candidates_score_choose():
+    from shield.placement.tuning import candidates, choose, score, tuning_instances
+    rng = np.random.default_rng(0)
+    cands = candidates({"a.x": [1, 2, 3], "a.y": [0.1, 0.2]}, 4, rng)
+    assert cands[0] == {} and len(cands) == 4 and len({tuple(sorted(c.items())) for c in cands}) == 4
+    rows = [{"algorithm": "ga", "candidate": c, "topology": "t", "k": 2, "run": 0, "F": f}
+            for c, f in ((0, 2.0), (1, 1.0), (2, 1.5))]
+    rows += [{"algorithm": "sa", "candidate": 0, "topology": "t", "k": 2, "run": 0, "F": 1.2}]
+    s = score(rows)
+    tuned = choose(s, {"ga": [{}, {"ga.pop": 20}, {"ga.pop": 80}], "sa": [{}]}, {"ga_clone": "ga"})
+    assert tuned["ga"]["params"] == {"ga.pop": 20} and tuned["ga"]["score"] == pytest.approx(1.0)
+    assert tuned["ga"]["default_score"] == pytest.approx(2.0)
+    assert tuned["ga_clone"]["inherited_from"] == "ga"
+    insts = tuning_instances({"synthetic": [50], "k_values": [4], "seed_offset": 1000})
+    assert insts == [("syn50s1050", 4)]
+
+
+def test_tuning_graphs_differ_from_evaluation_graphs():
+    from shield.placement.topology import get_topology
+    a, b = get_topology("syn30", None), get_topology("syn30s1030", None)
+    assert a.n == b.n == 30 and b.name == "syn30s1030"
+    assert not np.allclose(a.coords, b.coords)
+
+
+def test_sa_intensify_never_worsens():
+    from shield.placement.common import nearest_lists
+    from shield.placement.hybrid_eho_aco import sa_intensify
+    topo, P = _small_problem(n=25, k=3)
+    ev = Evaluator(P, 500)
+    C0 = np.array([0, 1, 2])
+    F0 = ev(C0)
+    C, F = sa_intensify(C0, F0, ev, nearest_lists(P.D), 200, 0.05, np.random.default_rng(0))
+    assert F <= F0 and F == pytest.approx(P(C)) and ev.n_evals <= 201
+
+
+def test_relative_sla():
+    from shield.placement.coupling import topology_sla
+    D = latency_matrix(path_graph(6))
+    lam = np.ones(6)
+    assert topology_sla(D, lam, {"mode": "absolute"}, 2, 20.0) == 20.0
+    from shield.placement.baselines import greedy_kmedian
+    sla = topology_sla(D, lam, {"mode": "relative", "quantile": 1.0, "slack": 1.5}, 2, 20.0)
+    # greedy 2-median on a 6-node path picks the middle node first: worst switch is 2 hops away
+    worst = D[:, greedy_kmedian(D, lam, 2)].min(1).max()
+    assert worst == pytest.approx(2.0) and sla == pytest.approx(1.5 * worst)
+
+
 def test_holm():
     adj = holm([0.01, 0.04, 0.03])
     assert adj == pytest.approx([0.03, 0.06, 0.06])
