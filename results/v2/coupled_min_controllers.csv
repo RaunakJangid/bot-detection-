@@ -1,0 +1,10 @@
+topology,sla_ms,rho,shield,shield_int8,teacher
+Geant2012,20.83,0.5,3,3,4
+Geant2012,20.83,0.7,3,3,6
+Geant2012,20.83,0.9,3,3,7
+Cogentco,215.82,0.5,6,6,6
+Cogentco,215.82,0.7,6,6,6
+Cogentco,215.82,0.9,6,6,8
+syn200,70.86,0.5,7,7,7
+syn200,70.86,0.7,7,7,7
+syn200,70.86,0.9,7,7,8

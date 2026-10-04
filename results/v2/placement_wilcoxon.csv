@@ -1,0 +1,11 @@
+vs,instances,significant,wins,ties,losses
+aco,56,31,941,590,149
+eho,56,35,1033,535,112
+ga,56,19,541,995,144
+hybrid_no_ants,56,4,271,1198,211
+hybrid_no_ls,56,42,1170,449,61
+hybrid_swap_ls,56,39,1000,632,48
+kmeans,56,56,1680,0,0
+pso,56,22,668,827,185
+random,56,43,1236,378,66
+sa,56,11,376,1071,233
