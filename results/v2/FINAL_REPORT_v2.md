@@ -224,7 +224,13 @@ Friedman p = 1.4e-96, CD = 2.87. Average ranks: **hybrid 3.44**, hybrid without 
 
 - **The hybrid is now ranked 1st** (v1: 3rd, behind SA and ACO).
 - **Statistically tied group at the top:** hybrid, hybrid without ants, SA, PSO, ACO and GA. Figure `cd_placement.png`.
-- **Hybrid vs SA, per instance** (Wilcoxon over 30 runs, Holm-corrected): the hybrid is significantly better on **8 of 56** instances and significantly worse on **0**. Over all runs: 376 wins, 1,071 ties, 233 losses.
+- **Hybrid vs SA, per instance** (paired Wilcoxon over 30 runs, tested in **both directions**, each Holm-corrected; `tables/placement_wilcoxon.csv`):
+  the hybrid is significantly better on **11 of 56** instances and significantly **worse on 2** (Geant2012 k=4 and k=6, both at load 0.5).
+  It is neither on the other 43. Over all runs: 376 wins, 1,071 ties, 233 losses.
+  Per instance, the hybrid has the lower mean objective on 27, SA on 10, and they are equal on 19.
+  But the **average** objective difference is **+0.33% in SA's favour**. A few instances where SA is clearly better (Cogentco k=8 rho=0.5: +6.8%; Geant2012 k=4 rho=0.7: +6.6%) outweigh many small hybrid wins.
+  *Correction:* an earlier version of this report said "better on 8, worse on 0". That came from a one-sided test, which cannot detect "worse"; the two-sided numbers above replace it.
+  Against every other method the hybrid is significantly worse on at most 2 instances (ACO 2, EHO 1, PSO 1, the others 0).
 - **Large networks** (mean rank): Kdl: **hybrid 1st** (1.64; SA 2.57). syn500: **hybrid 1st** (1.79; SA 3.14). Cogentco: PSO 1st (2.64), SA 3.21, hybrid 4th (3.86).
 
 ### F.3 Optimality gap on small networks (vs brute force)
