@@ -106,9 +106,15 @@ def placement(paths, out, args):
     if (pdir / "wilcoxon.csv").exists():
         w = pd.read_csv(pdir / "wilcoxon.csv")
         if not w.empty:
-            agg = w.groupby("vs").agg(instances=("p", "size"), significant=("p_holm", lambda p: int((p < 0.05).sum())),
-                                      wins=("wins", "sum"), ties=("ties", "sum"), losses=("losses", "sum")).reset_index()
-            save_table(agg, out / "tables" / "placement_wilcoxon", "Hybrid EHO-ACO vs baselines (Wilcoxon, Holm)")
+            spec = dict(instances=("p", "size"), significantly_better=("p_holm", lambda p: int((p < 0.05).sum())),
+                        wins=("wins", "sum"), ties=("ties", "sum"), losses=("losses", "sum"))
+            if "p_worse_holm" in w:
+                spec["significantly_worse"] = ("p_worse_holm", lambda p: int((p < 0.05).sum()))
+                spec["mean_diff_pct"] = ("mean_diff_pct", "mean")
+            agg = w.groupby("vs").agg(**spec).reset_index()
+            save_table(agg, out / "tables" / "placement_wilcoxon",
+                       "Hybrid EHO-ACO vs each method: instances where it is significantly better / worse "
+                       "(paired Wilcoxon over 30 runs, both directions, Holm-corrected)")
     # Component ablation of the hybrid + the fair tuning outcome.
     abl = [a for a in ("hybrid_eho_aco", "hybrid_no_ants", "hybrid_no_ls", "hybrid_swap_ls", "eho", "aco", "sa")
            if a in set(summary.algorithm)]

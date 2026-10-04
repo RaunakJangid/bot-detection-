@@ -33,7 +33,9 @@ def summarise(df: pd.DataFrame, optimum: pd.DataFrame | None = None) -> pd.DataF
 
 
 def wilcoxon_vs(df: pd.DataFrame, ours: str, others: list[str]) -> pd.DataFrame:
-    """Paired by run seed; one-sided H1: ours has lower F. Holm-corrected within each instance."""
+    """Paired by run seed, both directions: p = one-sided H1 "ours has lower F" (better), p_worse = one-sided
+    H1 "ours has higher F" (worse). Each is Holm-corrected within each instance, so a method can be reported
+    as significantly better, significantly worse, or neither."""
     rows = []
     for key, inst in df.groupby(INSTANCE):
         ref = inst[inst.algorithm == ours].set_index("seed")["F"]
@@ -46,15 +48,17 @@ def wilcoxon_vs(df: pd.DataFrame, ours: str, others: list[str]) -> pd.DataFrame:
             a, b = ref.loc[common].to_numpy(), other.loc[common].to_numpy()
             diff = a - b
             if np.allclose(diff, 0):
-                p = 1.0
+                p = p_worse = 1.0
             else:
                 p = float(wilcoxon(a, b, alternative="less", zero_method="zsplit").pvalue)
+                p_worse = float(wilcoxon(a, b, alternative="greater", zero_method="zsplit").pvalue)
             wins, ties = int((diff < -1e-12).sum()), int((np.abs(diff) <= 1e-12).sum())
-            block.append({**dict(zip(INSTANCE, key)), "vs": alg, "p": p, "wins": wins, "ties": ties,
-                          "losses": len(common) - wins - ties, "median_diff": float(np.median(diff))})
+            block.append({**dict(zip(INSTANCE, key)), "vs": alg, "p": p, "p_worse": p_worse, "wins": wins,
+                          "ties": ties, "losses": len(common) - wins - ties, "median_diff": float(np.median(diff)),
+                          "mean_diff_pct": float(100 * (a.mean() - b.mean()) / max(abs(b.mean()), 1e-12))})
         if block:
-            for row, adj in zip(block, holm([r["p"] for r in block])):
-                row["p_holm"] = adj
+            for row, adj, adj_w in zip(block, holm([r["p"] for r in block]), holm([r["p_worse"] for r in block])):
+                row["p_holm"], row["p_worse_holm"] = adj, adj_w
             rows.extend(block)
     return pd.DataFrame(rows)
 

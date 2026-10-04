@@ -200,6 +200,20 @@ def test_relative_sla():
     assert worst == pytest.approx(2.0) and sla == pytest.approx(1.5 * worst)
 
 
+def test_wilcoxon_reports_both_directions():
+    import pandas as pd
+    from shield.eval.stats import wilcoxon_vs
+    rng = np.random.default_rng(0)
+    rows = []
+    for seed in range(20):
+        base = rng.normal(10, 0.1)
+        for alg, f in (("ours", base), ("worse_alg", base + 1.0), ("better_alg", base - 1.0)):
+            rows.append({"topology": "t", "k": 2, "rho": 0.5, "algorithm": alg, "seed": seed, "F": f})
+    w = wilcoxon_vs(pd.DataFrame(rows), "ours", ["worse_alg", "better_alg"]).set_index("vs")
+    assert w.loc["worse_alg", "p_holm"] < 0.05 and w.loc["worse_alg", "p_worse_holm"] > 0.5
+    assert w.loc["better_alg", "p_worse_holm"] < 0.05 and w.loc["better_alg", "p_holm"] > 0.5
+
+
 def test_holm():
     adj = holm([0.01, 0.04, 0.03])
     assert adj == pytest.approx([0.03, 0.06, 0.06])
