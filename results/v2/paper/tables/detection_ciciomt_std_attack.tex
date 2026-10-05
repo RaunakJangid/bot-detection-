@@ -1,0 +1,12 @@
+\begin{table}
+\caption{Detection results, ciciomt_std_attack}
+\begin{tabular}{lrrllllrrlll}
+\toprule
+model & runs & k & macro_f1 & accuracy & mcc & teacher_agreement & shap_fidelity & params & size_kb & cpu_latency_b1_ms & cpu_flows_per_s \\
+\midrule
+teacher & 1 & -- & 69.06 & 71.57 & 0.6669 & -- & -- & 1.212e+06 & -- & -- & -- \\
+shield & 1 & 32 & 69.84 & 78.12 & 0.7202 & 84.17 & 0.912 & -- & -- & -- & -- \\
+shield_int8 & 1 & 32 & 62.02 & 72.70 & 0.6485 & 64.25 & 0.912 & -- & -- & -- & -- \\
+\bottomrule
+\end{tabular}
+\end{table}

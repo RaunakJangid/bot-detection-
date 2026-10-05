@@ -1,0 +1,155 @@
+{
+  "aco": {
+    "params": {
+      "aco.a": 0.5,
+      "aco.b": 2.0,
+      "aco.evaporation": 0.2,
+      "aco.mask_quantile": 0.05,
+      "aco.n_ants": 20
+    },
+    "score": 1.0489439395313358,
+    "default_score": 1.0839997726780064,
+    "candidates": 16
+  },
+  "eho": {
+    "params": {
+      "hybrid.alpha": 0.7,
+      "hybrid.beta": 0.1,
+      "hybrid.clan_size": 5,
+      "hybrid.n_clans": 3
+    },
+    "score": 1.0810033117560376,
+    "default_score": 1.1018139488823029,
+    "candidates": 16
+  },
+  "ga": {
+    "params": {
+      "ga.cx_rate": 0.95,
+      "ga.mut_rate": 0.4,
+      "ga.pop": 40,
+      "ga.tournament": 2
+    },
+    "score": 1.0307973257310736,
+    "default_score": 1.1079752029397618,
+    "candidates": 16
+  },
+  "hybrid_eho_aco": {
+    "params": {
+      "aco.b": 4.0,
+      "aco.evaporation": 0.2,
+      "hybrid.alpha": 0.5,
+      "hybrid.beta": 0.3,
+      "hybrid.clan_size": 8,
+      "hybrid.local_search_evals": 500,
+      "hybrid.local_search_every": 2,
+      "hybrid.n_clans": 3,
+      "hybrid.sa_t0_frac": 0.05
+    },
+    "score": 1.0078051998476723,
+    "default_score": 1.0331952244042766,
+    "candidates": 16
+  },
+  "pso": {
+    "params": {
+      "pso.c1": 0.5,
+      "pso.c2": 0.1,
+      "pso.swarm": 60,
+      "pso.w": 0.2
+    },
+    "score": 1.0276616092895514,
+    "default_score": 1.0963850836413842,
+    "candidates": 16
+  },
+  "sa": {
+    "params": {
+      "sa.cooling": 0.9995,
+      "sa.t0_samples": 100
+    },
+    "score": 1.0319459765695662,
+    "default_score": 1.0486310205217622,
+    "candidates": 13
+  },
+  "hybrid_no_ants": {
+    "params": {
+      "aco.b": 4.0,
+      "aco.evaporation": 0.2,
+      "hybrid.alpha": 0.5,
+      "hybrid.beta": 0.3,
+      "hybrid.clan_size": 8,
+      "hybrid.local_search_evals": 500,
+      "hybrid.local_search_every": 2,
+      "hybrid.n_clans": 3,
+      "hybrid.sa_t0_frac": 0.05
+    },
+    "score": 1.0078051998476723,
+    "default_score": 1.0331952244042766,
+    "candidates": 16,
+    "inherited_from": "hybrid_eho_aco"
+  },
+  "hybrid_no_ls": {
+    "params": {
+      "aco.b": 4.0,
+      "aco.evaporation": 0.2,
+      "hybrid.alpha": 0.5,
+      "hybrid.beta": 0.3,
+      "hybrid.clan_size": 8,
+      "hybrid.local_search_evals": 500,
+      "hybrid.local_search_every": 2,
+      "hybrid.n_clans": 3,
+      "hybrid.sa_t0_frac": 0.05
+    },
+    "score": 1.0078051998476723,
+    "default_score": 1.0331952244042766,
+    "candidates": 16,
+    "inherited_from": "hybrid_eho_aco"
+  },
+  "hybrid_swap_ls": {
+    "params": {
+      "aco.b": 4.0,
+      "aco.evaporation": 0.2,
+      "hybrid.alpha": 0.5,
+      "hybrid.beta": 0.3,
+      "hybrid.clan_size": 8,
+      "hybrid.local_search_evals": 500,
+      "hybrid.local_search_every": 2,
+      "hybrid.n_clans": 3,
+      "hybrid.sa_t0_frac": 0.05
+    },
+    "score": 1.0078051998476723,
+    "default_score": 1.0331952244042766,
+    "candidates": 16,
+    "inherited_from": "hybrid_eho_aco"
+  },
+  "_meta": {
+    "instances": [
+      [
+        "syn50s1050",
+        4
+      ],
+      [
+        "syn50s1050",
+        6
+      ],
+      [
+        "syn100s1100",
+        4
+      ],
+      [
+        "syn100s1100",
+        6
+      ],
+      [
+        "syn200s1200",
+        4
+      ],
+      [
+        "syn200s1200",
+        6
+      ]
+    ],
+    "runs": 3,
+    "rho": 0.7,
+    "mu_controller": 5707908.849766002,
+    "note": "tuning graphs use different seeds from every evaluation graph"
+  }
+}

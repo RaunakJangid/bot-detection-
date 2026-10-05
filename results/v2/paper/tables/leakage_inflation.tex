@@ -1,0 +1,19 @@
+\begin{table}
+\caption{Macro-F1 with leaky features (standard) vs without (strict)}
+\begin{tabular}{lllrrr}
+\toprule
+dataset & task & model & strict & standard & inflation_points \\
+\midrule
+ciciot & family & teacher & 0.7019 & 0.7083 & 0.63 \\
+ciciot & family & shield & 0.6908 & 0.6923 & 0.15 \\
+ciciot & class34 & teacher & 0.6666 & 0.6736 & 0.71 \\
+ciciot & class34 & shield & 0.6397 & 0.6357 & -0.41 \\
+ciciomt & category & teacher & 0.8047 & 0.7885 & -1.63 \\
+ciciomt & category & shield & 0.8277 & 0.8019 & -2.59 \\
+ciciomt & attack & teacher & 0.6911 & 0.6906 & -0.05 \\
+ciciomt & attack & shield & 0.6987 & 0.6984 & -0.03 \\
+botiot & category & teacher & 0.9302 & 0.9295 & -0.06 \\
+botiot & category & shield & 0.9072 & 0.9145 & 0.73 \\
+\bottomrule
+\end{tabular}
+\end{table}

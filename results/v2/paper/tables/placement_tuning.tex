@@ -1,0 +1,18 @@
+\begin{table}
+\caption{Tuned settings (score = mean F / best F on tuning graphs)}
+\begin{tabular}{lrrll}
+\toprule
+algorithm & score & default_score & params & inherited_from \\
+\midrule
+aco & 1.049 & 1.084 & {'aco.a': 0.5, 'aco.b': 2.0, 'aco.evaporation': 0.2, 'aco.mask_quantile': 0.05, 'aco.n_ants': 20} & -- \\
+eho & 1.081 & 1.102 & {'hybrid.alpha': 0.7, 'hybrid.beta': 0.1, 'hybrid.clan_size': 5, 'hybrid.n_clans': 3} & -- \\
+ga & 1.031 & 1.108 & {'ga.cx_rate': 0.95, 'ga.mut_rate': 0.4, 'ga.pop': 40, 'ga.tournament': 2} & -- \\
+hybrid_eho_aco & 1.008 & 1.033 & {'aco.b': 4.0, 'aco.evaporation': 0.2, 'hybrid.alpha': 0.5, 'hybrid.beta': 0.3, 'hybrid.clan_size': 8, 'hybrid.local_search_evals': 500, 'hybrid.local_search_every': 2, 'hybrid.n_clans': 3, 'hybrid.sa_t0_frac': 0.05} & -- \\
+pso & 1.028 & 1.096 & {'pso.c1': 0.5, 'pso.c2': 0.1, 'pso.swarm': 60, 'pso.w': 0.2} & -- \\
+sa & 1.032 & 1.049 & {'sa.cooling': 0.9995, 'sa.t0_samples': 100} & -- \\
+hybrid_no_ants & 1.008 & 1.033 & {'aco.b': 4.0, 'aco.evaporation': 0.2, 'hybrid.alpha': 0.5, 'hybrid.beta': 0.3, 'hybrid.clan_size': 8, 'hybrid.local_search_evals': 500, 'hybrid.local_search_every': 2, 'hybrid.n_clans': 3, 'hybrid.sa_t0_frac': 0.05} & hybrid_eho_aco \\
+hybrid_no_ls & 1.008 & 1.033 & {'aco.b': 4.0, 'aco.evaporation': 0.2, 'hybrid.alpha': 0.5, 'hybrid.beta': 0.3, 'hybrid.clan_size': 8, 'hybrid.local_search_evals': 500, 'hybrid.local_search_every': 2, 'hybrid.n_clans': 3, 'hybrid.sa_t0_frac': 0.05} & hybrid_eho_aco \\
+hybrid_swap_ls & 1.008 & 1.033 & {'aco.b': 4.0, 'aco.evaporation': 0.2, 'hybrid.alpha': 0.5, 'hybrid.beta': 0.3, 'hybrid.clan_size': 8, 'hybrid.local_search_evals': 500, 'hybrid.local_search_every': 2, 'hybrid.n_clans': 3, 'hybrid.sa_t0_frac': 0.05} & hybrid_eho_aco \\
+\bottomrule
+\end{tabular}
+\end{table}

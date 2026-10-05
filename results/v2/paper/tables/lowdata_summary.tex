@@ -1,0 +1,57 @@
+\begin{table}
+\caption{Low-data distillation, mean and std over seeds}
+\begin{tabular}{llrlrrrr}
+\toprule
+dataset & task & fraction & variant & macro_f1_mean & macro_f1_std & agreement_mean & agreement_std \\
+\midrule
+botiot & binary & 0.001 & kd_shap & 0.875 & 0.0392 & 0.9999 & 4.241e-05 \\
+botiot & binary & 0.001 & shield & 0.8773 & 0.03808 & 0.9999 & 3.006e-05 \\
+botiot & binary & 0.01 & kd_shap & 0.935 & 0.01671 & 0.9999 & 1.481e-05 \\
+botiot & binary & 0.01 & shield & 0.9272 & 0.01627 & 0.9999 & 1.623e-05 \\
+botiot & binary & 0.1 & kd_shap & 0.9658 & 0.005275 & 1 & 6.184e-06 \\
+botiot & binary & 0.1 & shield & 0.9527 & 0.00524 & 1 & 6.409e-06 \\
+botiot & category & 0.001 & kd_shap & 0.7292 & 0.03967 & 0.9138 & 0.008764 \\
+botiot & category & 0.001 & shield & 0.724 & 0.03758 & 0.9152 & 0.007195 \\
+botiot & category & 0.01 & kd_shap & 0.8304 & 0.04263 & 0.935 & 0.007716 \\
+botiot & category & 0.01 & shield & 0.8214 & 0.02777 & 0.933 & 0.01135 \\
+botiot & category & 0.1 & kd_shap & 0.9001 & 0.01076 & 0.9646 & 0.005337 \\
+botiot & category & 0.1 & shield & 0.8991 & 0.003976 & 0.9655 & 0.006161 \\
+ciciomt & attack & 0.001 & kd_shap & 0.5849 & 0.01417 & 0.7092 & 0.0119 \\
+ciciomt & attack & 0.001 & shield & 0.5842 & 0.01502 & 0.707 & 0.007973 \\
+ciciomt & attack & 0.01 & kd_shap & 0.6105 & 0.008031 & 0.7218 & 0.006238 \\
+ciciomt & attack & 0.01 & shield & 0.6086 & 0.006724 & 0.714 & 0.01434 \\
+ciciomt & attack & 0.1 & kd_shap & 0.656 & 0.003599 & 0.8329 & 0.02975 \\
+ciciomt & attack & 0.1 & shield & 0.6649 & 0.003517 & 0.8239 & 0.009333 \\
+ciciomt & binary & 0.001 & kd_shap & 0.9373 & 0.008882 & 0.9921 & 0.001425 \\
+ciciomt & binary & 0.001 & shield & 0.9346 & 0.008738 & 0.9917 & 0.001467 \\
+ciciomt & binary & 0.01 & kd_shap & 0.9496 & 0.002784 & 0.9943 & 0.0005639 \\
+ciciomt & binary & 0.01 & shield & 0.9468 & 0.002481 & 0.9935 & 0.0005298 \\
+ciciomt & binary & 0.1 & kd_shap & 0.9561 & 0.002229 & 0.9948 & 0.0002652 \\
+ciciomt & binary & 0.1 & shield & 0.9576 & 0.00244 & 0.9948 & 0.0004388 \\
+ciciomt & category & 0.001 & kd_shap & 0.7508 & 0.01389 & 0.8362 & 0.007885 \\
+ciciomt & category & 0.001 & shield & 0.7604 & 0.01063 & 0.8479 & 0.005213 \\
+ciciomt & category & 0.01 & kd_shap & 0.7662 & 0.007999 & 0.8419 & 0.007238 \\
+ciciomt & category & 0.01 & shield & 0.7819 & 0.02038 & 0.8533 & 0.009367 \\
+ciciomt & category & 0.1 & kd_shap & 0.7857 & 0.004045 & 0.9252 & 0.006977 \\
+ciciomt & category & 0.1 & shield & 0.7876 & 0.009695 & 0.9218 & 0.01193 \\
+ciciot & binary & 0.001 & kd_shap & 0.9074 & 0.001164 & 0.9881 & 0.0007746 \\
+ciciot & binary & 0.001 & shield & 0.9059 & 0.001289 & 0.9878 & 0.0004495 \\
+ciciot & binary & 0.01 & kd_shap & 0.9175 & 0.002565 & 0.9896 & 0.0006027 \\
+ciciot & binary & 0.01 & shield & 0.9154 & 0.001235 & 0.9891 & 0.0004419 \\
+ciciot & binary & 0.1 & kd_shap & 0.9335 & 0.001452 & 0.9929 & 0.0003041 \\
+ciciot & binary & 0.1 & shield & 0.9307 & 0.001892 & 0.9923 & 0.0007317 \\
+ciciot & class34 & 0.001 & kd_shap & 0.531 & 0.008506 & 0.8899 & 0.009741 \\
+ciciot & class34 & 0.001 & shield & 0.5363 & 0.009867 & 0.8861 & 0.009815 \\
+ciciot & class34 & 0.01 & kd_shap & 0.5458 & 0.001216 & 0.8931 & 0.002821 \\
+ciciot & class34 & 0.01 & shield & 0.5467 & 0.004826 & 0.898 & 0.004449 \\
+ciciot & class34 & 0.1 & kd_shap & 0.5849 & 0.003468 & 0.9393 & 0.007073 \\
+ciciot & class34 & 0.1 & shield & 0.5894 & 0.005595 & 0.9406 & 0.005406 \\
+ciciot & family & 0.001 & kd_shap & 0.6009 & 0.01809 & 0.9159 & 0.006115 \\
+ciciot & family & 0.001 & shield & 0.6034 & 0.0182 & 0.9189 & 0.008073 \\
+ciciot & family & 0.01 & kd_shap & 0.6206 & 0.01725 & 0.9295 & 0.005337 \\
+ciciot & family & 0.01 & shield & 0.6256 & 0.0178 & 0.931 & 0.005537 \\
+ciciot & family & 0.1 & kd_shap & 0.6561 & 0.001691 & 0.957 & 0.0006397 \\
+ciciot & family & 0.1 & shield & 0.6566 & 0.001111 & 0.9562 & 0.001417 \\
+\bottomrule
+\end{tabular}
+\end{table}

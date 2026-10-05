@@ -1,0 +1,15 @@
+{
+  "average_rank": {
+    "kd_all": 1.95,
+    "scratch_all": 2.85,
+    "kd_shap": 3.9625,
+    "shield": 4.175,
+    "kd_variance": 5.075,
+    "kd_mi": 5.3625,
+    "kd_random": 5.95,
+    "shield_int8": 6.675
+  },
+  "friedman_p": 3.4128771460682215e-22,
+  "blocks": 40,
+  "nemenyi_cd": 1.6601470717981583
+}

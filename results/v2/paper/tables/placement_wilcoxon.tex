@@ -1,0 +1,19 @@
+\begin{table}
+\caption{Hybrid EHO-ACO vs each method: instances where it is significantly better / worse (paired Wilcoxon over 30 runs, both directions, Holm-corrected)}
+\begin{tabular}{lrrrrrrr}
+\toprule
+vs & instances & significantly_better & wins & ties & losses & significantly_worse & mean_diff_pct \\
+\midrule
+aco & 56 & 31 & 941 & 590 & 149 & 2 & -1.207 \\
+eho & 56 & 35 & 1033 & 535 & 112 & 1 & -2.437 \\
+ga & 56 & 19 & 541 & 995 & 144 & 0 & -1.132 \\
+hybrid_no_ants & 56 & 4 & 271 & 1198 & 211 & 0 & -0.624 \\
+hybrid_no_ls & 56 & 42 & 1170 & 449 & 61 & 0 & -3.429 \\
+hybrid_swap_ls & 56 & 39 & 1000 & 632 & 48 & 0 & -3.94 \\
+kmeans & 56 & 56 & 1680 & 0 & 0 & 0 & -40.44 \\
+pso & 56 & 22 & 668 & 827 & 185 & 1 & -0.8717 \\
+random & 56 & 43 & 1236 & 378 & 66 & 0 & -5.793 \\
+sa & 56 & 11 & 376 & 1071 & 233 & 2 & 0.3267 \\
+\bottomrule
+\end{tabular}
+\end{table}

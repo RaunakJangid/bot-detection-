@@ -1,0 +1,17 @@
+\begin{table}
+\caption{Per-task feature budget chosen on validation}
+\begin{tabular}{lrlll}
+\toprule
+task & k & hidden & ranking & objective \\
+\midrule
+ciciot_binary & 16 & 64-32 & class_balanced & {'kd': 'kd', 'T': 1.0, 'alpha': 0.7, 'beta': 0.3, 'teacher': 'teacher'} \\
+ciciot_family & 32 & 128-64 & class_balanced & {'kd': 'kd', 'T': 1.0, 'alpha': 0.7, 'beta': 0.3, 'teacher': 'teacher'} \\
+ciciot_class34 & 32 & 128-64 & class_balanced & {'kd': 'kd', 'T': 1.0, 'alpha': 0.7, 'beta': 0.3, 'teacher': 'teacher'} \\
+ciciomt_binary & 12 & 64-32 & class_balanced & {'kd': 'kd', 'T': 1.0, 'alpha': 0.7, 'beta': 0.3, 'teacher': 'teacher'} \\
+ciciomt_category & 16 & 128-64 & class_balanced & {'kd': 'kd', 'T': 1.0, 'alpha': 0.7, 'beta': 0.3, 'teacher': 'teacher'} \\
+ciciomt_attack & 32 & 128-64 & class_balanced & {'kd': 'kd', 'T': 1.0, 'alpha': 0.7, 'beta': 0.3, 'teacher': 'teacher'} \\
+botiot_binary & 12 & 64-32 & class_balanced & {'kd': 'kd', 'T': 1.0, 'alpha': 0.7, 'beta': 0.3, 'teacher': 'teacher'} \\
+botiot_category & 12 & 128-64 & class_balanced & {'kd': 'kd', 'T': 1.0, 'alpha': 0.7, 'beta': 0.3, 'teacher': 'teacher'} \\
+\bottomrule
+\end{tabular}
+\end{table}

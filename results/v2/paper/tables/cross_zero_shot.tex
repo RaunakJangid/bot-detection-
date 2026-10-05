@@ -1,0 +1,89 @@
+\begin{table}
+\caption{Cross-dataset zero-shot macro-F1}
+\begin{tabular}{lllllrrrrrr}
+\toprule
+source & target & task & model & norm & in_domain & zero_shot & zero_shot_std & oracle & agreement_teacher & drop_points \\
+\midrule
+xciciomt & xciciot & binary & kd_all & coral & 0.9752 & 0.8137 & 0.02225 & 0.9345 & 0.968 & 16.14 \\
+xciciomt & xciciot & binary & kd_all & dann & 0.9752 & 0.8032 & 0.05858 & -- & 0.87 & 17.2 \\
+xciciomt & xciciot & binary & kd_all & source & 0.9752 & 0.7747 & 0.04791 & 0.9345 & 0.9008 & 20.04 \\
+xciciomt & xciciot & binary & kd_all & target & 0.9752 & 0.711 & 0.01533 & 0.9345 & 0.9672 & 26.42 \\
+xciciomt & xciciot & binary & kd_shap & coral & 0.977 & 0.8332 & 0.01314 & 0.929 & 0.9702 & 14.38 \\
+xciciomt & xciciot & binary & kd_shap & source & 0.977 & 0.8169 & 0.009967 & 0.929 & 0.8638 & 16.01 \\
+xciciomt & xciciot & binary & kd_shap & target & 0.977 & 0.8466 & 0.02267 & 0.929 & 0.9774 & 13.04 \\
+xciciomt & xciciot & binary & scratch_all & coral & 0.9776 & 0.7754 & 0.02764 & 0.9333 & 0.9632 & 20.22 \\
+xciciomt & xciciot & binary & scratch_all & source & 0.9776 & 0.7269 & 0.02982 & 0.9333 & 0.9093 & 25.07 \\
+xciciomt & xciciot & binary & scratch_all & target & 0.9776 & 0.7009 & 0.047 & 0.9333 & 0.9621 & 27.67 \\
+xciciomt & xciciot & binary & shield & coral & 0.9751 & 0.8329 & 0.004906 & 0.9263 & 0.9727 & 14.22 \\
+xciciomt & xciciot & binary & shield & dann & 0.9751 & 0.8101 & 0.0374 & -- & 0.867 & 16.5 \\
+xciciomt & xciciot & binary & shield & source & 0.9751 & 0.8266 & 0.008758 & 0.9263 & 0.865 & 14.85 \\
+xciciomt & xciciot & binary & shield & target & 0.9751 & 0.8566 & 0.00738 & 0.9263 & 0.975 & 11.85 \\
+xciciomt & xciciot & binary & teacher & coral & 0.9827 & 0.7491 & 0.06937 & 0.926 & 1 & 23.37 \\
+xciciomt & xciciot & binary & teacher & source & 0.9827 & 0.6336 & 0.04311 & 0.926 & 1 & 34.91 \\
+xciciomt & xciciot & binary & teacher & target & 0.9827 & 0.813 & 0.02306 & 0.926 & 1 & 16.97 \\
+xciciomt & xciciot & binary & xgboost & coral & 0.9685 & 0.6475 & 0.001116 & 0.9391 & 0.9671 & 32.1 \\
+xciciomt & xciciot & binary & xgboost & source & 0.9685 & 0.8315 & 0 & 0.9391 & 0.8728 & 13.71 \\
+xciciomt & xciciot & binary & xgboost & target & 0.9685 & 0.6958 & 0 & 0.9391 & 0.9416 & 27.27 \\
+xciciomt & xciciot & shared5 & kd_all & coral & 0.7856 & 0.4444 & 0.03276 & 0.7882 & 0.6996 & 34.12 \\
+xciciomt & xciciot & shared5 & kd_all & dann & 0.7856 & 0.4618 & 0.05178 & -- & 0.5346 & 32.38 \\
+xciciomt & xciciot & shared5 & kd_all & source & 0.7856 & 0.3661 & 0.05621 & 0.7882 & 0.7459 & 41.95 \\
+xciciomt & xciciot & shared5 & kd_all & target & 0.7856 & 0.3955 & 0.0434 & 0.7882 & 0.6448 & 39.01 \\
+xciciomt & xciciot & shared5 & kd_shap & coral & 0.78 & 0.4535 & 0.02386 & 0.7724 & 0.6964 & 32.65 \\
+xciciomt & xciciot & shared5 & kd_shap & source & 0.78 & 0.5141 & 0.01668 & 0.7724 & 0.6617 & 26.59 \\
+xciciomt & xciciot & shared5 & kd_shap & target & 0.78 & 0.4277 & 0.01988 & 0.7724 & 0.6238 & 35.23 \\
+xciciomt & xciciot & shared5 & scratch_all & coral & 0.7781 & 0.4463 & 0.01094 & 0.786 & 0.6527 & 33.18 \\
+xciciomt & xciciot & shared5 & scratch_all & source & 0.7781 & 0.4047 & 0.02274 & 0.786 & 0.7134 & 37.34 \\
+xciciomt & xciciot & shared5 & scratch_all & target & 0.7781 & 0.3797 & 0.01278 & 0.786 & 0.6816 & 39.83 \\
+xciciomt & xciciot & shared5 & shield & coral & 0.7771 & 0.4528 & 0.01263 & 0.7701 & 0.625 & 32.43 \\
+xciciomt & xciciot & shared5 & shield & dann & 0.7771 & 0.527 & 0.02566 & -- & 0.5211 & 25 \\
+xciciomt & xciciot & shared5 & shield & source & 0.7771 & 0.5057 & 0.01396 & 0.7701 & 0.6599 & 27.14 \\
+xciciomt & xciciot & shared5 & shield & target & 0.7771 & 0.4652 & 0.03828 & 0.7701 & 0.556 & 31.19 \\
+xciciomt & xciciot & shared5 & teacher & coral & 0.761 & 0.3935 & 0.006055 & 0.8044 & 1 & 36.76 \\
+xciciomt & xciciot & shared5 & teacher & source & 0.761 & 0.3116 & 0.01769 & 0.8044 & 1 & 44.95 \\
+xciciomt & xciciot & shared5 & teacher & target & 0.761 & 0.4066 & 0.02155 & 0.8044 & 1 & 35.44 \\
+xciciomt & xciciot & shared5 & xgboost & coral & 0.7781 & 0.4244 & 0.003221 & 0.8125 & 0.674 & 35.37 \\
+xciciomt & xciciot & shared5 & xgboost & source & 0.7781 & 0.4538 & 0 & 0.8125 & 0.629 & 32.43 \\
+xciciomt & xciciot & shared5 & xgboost & target & 0.7781 & 0.399 & 0 & 0.8125 & 0.5914 & 37.91 \\
+xciciot & xciciomt & binary & kd_all & coral & 0.9345 & 0.8157 & 0.008353 & 0.9752 & 0.991 & 11.88 \\
+xciciot & xciciomt & binary & kd_all & dann & 0.9345 & 0.7007 & 0.1007 & -- & 0.9837 & 23.38 \\
+xciciot & xciciomt & binary & kd_all & source & 0.9345 & 0.6434 & 0.0129 & 0.9752 & 0.9909 & 29.11 \\
+xciciot & xciciomt & binary & kd_all & target & 0.9345 & 0.5105 & 0.004851 & 0.9752 & 0.9951 & 42.39 \\
+xciciot & xciciomt & binary & kd_shap & coral & 0.929 & 0.8128 & 0.03607 & 0.977 & 0.9882 & 11.62 \\
+xciciot & xciciomt & binary & kd_shap & source & 0.929 & 0.6204 & 0.005608 & 0.977 & 0.9887 & 30.87 \\
+xciciot & xciciomt & binary & kd_shap & target & 0.929 & 0.5493 & 0.02972 & 0.977 & 0.9923 & 37.97 \\
+xciciot & xciciomt & binary & scratch_all & coral & 0.9333 & 0.831 & 0.02487 & 0.9776 & 0.9908 & 10.24 \\
+xciciot & xciciomt & binary & scratch_all & source & 0.9333 & 0.6188 & 0.008662 & 0.9776 & 0.9897 & 31.45 \\
+xciciot & xciciomt & binary & scratch_all & target & 0.9333 & 0.509 & 0.01064 & 0.9776 & 0.9952 & 42.44 \\
+xciciot & xciciomt & binary & shield & coral & 0.9263 & 0.7793 & 0.06854 & 0.9751 & 0.9832 & 14.7 \\
+xciciot & xciciomt & binary & shield & dann & 0.9263 & 0.8592 & 0.1259 & -- & 0.9755 & 6.71 \\
+xciciot & xciciomt & binary & shield & source & 0.9263 & 0.6088 & 0.02229 & 0.9751 & 0.9871 & 31.74 \\
+xciciot & xciciomt & binary & shield & target & 0.9263 & 0.5711 & 0.04019 & 0.9751 & 0.9919 & 35.52 \\
+xciciot & xciciomt & binary & teacher & coral & 0.926 & 0.8512 & 0.01142 & 0.9827 & 1 & 7.488 \\
+xciciot & xciciomt & binary & teacher & source & 0.926 & 0.7358 & 0.02631 & 0.9827 & 1 & 19.03 \\
+xciciot & xciciomt & binary & teacher & target & 0.926 & 0.5708 & 0.01286 & 0.9827 & 1 & 35.53 \\
+xciciot & xciciomt & binary & xgboost & coral & 0.9391 & 0.489 & 0.0001269 & 0.9685 & 0.9728 & 45.01 \\
+xciciot & xciciomt & binary & xgboost & source & 0.9391 & 0.5467 & 0 & 0.9685 & 0.9845 & 39.24 \\
+xciciot & xciciomt & binary & xgboost & target & 0.9391 & 0.4897 & 0 & 0.9685 & 0.9943 & 44.94 \\
+xciciot & xciciomt & shared5 & kd_all & coral & 0.7882 & 0.3938 & 0.03888 & 0.7856 & 0.8078 & 39.44 \\
+xciciot & xciciomt & shared5 & kd_all & dann & 0.7882 & 0.5884 & 0.009917 & -- & 0.349 & 19.98 \\
+xciciot & xciciomt & shared5 & kd_all & source & 0.7882 & 0.4304 & 0.01186 & 0.7856 & 0.889 & 35.78 \\
+xciciot & xciciomt & shared5 & kd_all & target & 0.7882 & 0.308 & 0.01872 & 0.7856 & 0.6106 & 48.02 \\
+xciciot & xciciomt & shared5 & kd_shap & coral & 0.7724 & 0.4234 & 0.04399 & 0.78 & 0.802 & 34.9 \\
+xciciot & xciciomt & shared5 & kd_shap & source & 0.7724 & 0.4197 & 0.02589 & 0.78 & 0.8498 & 35.26 \\
+xciciot & xciciomt & shared5 & kd_shap & target & 0.7724 & 0.3306 & 0.006119 & 0.78 & 0.7501 & 44.17 \\
+xciciot & xciciomt & shared5 & scratch_all & coral & 0.786 & 0.4286 & 0.04902 & 0.7781 & 0.8258 & 35.74 \\
+xciciot & xciciomt & shared5 & scratch_all & source & 0.786 & 0.4843 & 0.04197 & 0.7781 & 0.8327 & 30.17 \\
+xciciot & xciciomt & shared5 & scratch_all & target & 0.786 & 0.3109 & 0.0124 & 0.7781 & 0.6866 & 47.5 \\
+xciciot & xciciomt & shared5 & shield & coral & 0.7701 & 0.4386 & 0.0536 & 0.7771 & 0.8139 & 33.15 \\
+xciciot & xciciomt & shared5 & shield & dann & 0.7701 & 0.5985 & 0.02547 & -- & 0.3089 & 17.16 \\
+xciciot & xciciomt & shared5 & shield & source & 0.7701 & 0.3911 & 0.006186 & 0.7771 & 0.8794 & 37.89 \\
+xciciot & xciciomt & shared5 & shield & target & 0.7701 & 0.3377 & 0.02843 & 0.7771 & 0.7598 & 43.24 \\
+xciciot & xciciomt & shared5 & teacher & coral & 0.8044 & 0.4128 & 0.02384 & 0.761 & 1 & 39.16 \\
+xciciot & xciciomt & shared5 & teacher & source & 0.8044 & 0.4014 & 0.0025 & 0.761 & 1 & 40.3 \\
+xciciot & xciciomt & shared5 & teacher & target & 0.8044 & 0.4079 & 0.05748 & 0.761 & 1 & 39.65 \\
+xciciot & xciciomt & shared5 & xgboost & coral & 0.8125 & 0.2882 & 0.003649 & 0.7781 & 0.6527 & 52.43 \\
+xciciot & xciciomt & shared5 & xgboost & source & 0.8125 & 0.4262 & 0 & 0.7781 & 0.7805 & 38.64 \\
+xciciot & xciciomt & shared5 & xgboost & target & 0.8125 & 0.3728 & 0 & 0.7781 & 0.7772 & 43.98 \\
+\bottomrule
+\end{tabular}
+\end{table}

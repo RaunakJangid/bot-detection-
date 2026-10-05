@@ -1,0 +1,12 @@
+\begin{table}
+\caption{Detection results, ciciomt_std_category}
+\begin{tabular}{lrrllllrrlll}
+\toprule
+model & runs & k & macro_f1 & accuracy & mcc & teacher_agreement & shap_fidelity & params & size_kb & cpu_latency_b1_ms & cpu_flows_per_s \\
+\midrule
+teacher & 1 & -- & 78.85 & 78.99 & 0.6496 & -- & -- & 1.207e+06 & -- & -- & -- \\
+shield & 1 & 16 & 80.19 & 80.59 & 0.6743 & 93.98 & 0.662 & -- & -- & -- & -- \\
+shield_int8 & 1 & 16 & 79.19 & 76.23 & 0.6001 & 83.80 & 0.662 & -- & -- & -- & -- \\
+\bottomrule
+\end{tabular}
+\end{table}
