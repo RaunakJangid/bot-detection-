@@ -78,7 +78,11 @@ gain is below:
 | CICIoT binary | 95.70 | 96.5 (RF, Neto et al. 2023) | keeps `IAT` — **we do not beat this** |
 | CICIoMT 19-class | 71.60 (ensemble) | 52.2–55.1 (RF, Dadkhah et al., IoT 2024; two secondary sources disagree) | dataset paper baseline; later papers report much higher scores under other protocols |
 
-These published numbers use **different test sets** (and mostly a leaky feature), so the comparison is indicative;
+Two leaderboards (published headline scores vs results reproduced under a comparable protocol on the same test rows):
+
+{{leaderboards}}
+
+The published CICIoMT headline (two-stage CatBoost, 90.39) is reproduced only when the leaky `IAT` feature is kept (92.12); under the strict protocol the same method scores 78.13 on 6-class and 62.01 on 19-class, below ours. These published numbers use **different test sets** (and mostly a leaky feature), so the comparison is indicative;
 only the subset → full comparison above is row-matched. We do **not** claim state of the art on CICIoMT2024: later
 studies report far higher scores under different protocols, and a strict CICIoMT2024 reference was not found.
 

@@ -92,7 +92,31 @@ gain is below:
 | CICIoT binary | 95.70 | 96.5 (RF, Neto et al. 2023) | keeps `IAT` — **we do not beat this** |
 | CICIoMT 19-class | 71.60 (ensemble) | 52.2–55.1 (RF, Dadkhah et al., IoT 2024; two secondary sources disagree) | dataset paper baseline; later papers report much higher scores under other protocols |
 
-These published numbers use **different test sets** (and mostly a leaky feature), so the comparison is indicative;
+Two leaderboards (published headline scores vs results reproduced under a comparable protocol on the same test rows):
+
+| board | task | method | macro_f1 | protocol | source |
+|---|---|---|---|---|---|
+| comparable | CICIoT 34-class | ours: ensemble+rule (full data) | 73.22 | strict (IAT removed; cross-split de-dup; identical test rows) | outputs_v3/detector_v4/ciciot_full_class34.json |
+| comparable | CICIoT 34-class | XGBoost (v2 settings; full data) | 70.81 | strict; same test rows | outputs_full/xgboost |
+| comparable | CICIoT 34-class | LightGBM tuned on validation (full data) | 67.33 | strict; same test rows | outputs_v3/gbdt_strict_partial.json |
+| comparable | CICIoT 34-class | CatBoost (full data) | 68.29 | strict; same test rows | outputs_v3/detector_v4/ciciot_full_class34.json |
+| comparable | CICIoMT 6-class | ours: ensemble+rule | 83.93 | strict; official test captures de-duplicated | outputs_v3/detector_v4/ciciomt_category.json |
+| comparable | CICIoMT 6-class | two-stage CatBoost (reproduction of duaabn/CICIoMT2024) | 78.13 | strict; same test rows | outputs_v3/two_stage/ciciomt_category.json |
+| comparable | CICIoMT 6-class | two-stage CatBoost with IAT kept | 92.12 | IAT kept (leaky); same de-dup test rows | outputs_v3/two_stage/ciciomt_std_category.json |
+| comparable | CICIoMT 19-class | ours: ensemble | 71.60 | strict | outputs_v3/detector_v4/ciciomt_attack.json |
+| comparable | CICIoMT 19-class | two-stage CatBoost | 62.01 | strict; same test rows | outputs_v3/two_stage/ciciomt_attack.json |
+| comparable | CICIoMT 19-class | two-stage CatBoost with IAT kept | 82.44 | IAT kept (leaky); same de-dup test rows | outputs_v3/two_stage/ciciomt_std_attack.json |
+| published | CICIoT 34-class | RF (Neto et al. Sensors 2023) | 71.4 | IAT kept; no cross-split de-dup; own split | https://pmc.ncbi.nlm.nih.gov/articles/PMC10346235/ |
+| published | CICIoT 34-class | LightGBM (H. M. Kim; manuscript under review 2026) | 71.1 | IAT removed; own split; config not published | https://github.com/homyungkim/leakage-aware-iiot-ids |
+| published | CICIoT 8-class | RF (Neto et al. 2023) | 71.9 | IAT kept | https://pmc.ncbi.nlm.nih.gov/articles/PMC10346235/ |
+| published | CICIoT binary | RF (Neto et al. 2023) | 96.5 | IAT kept | https://pmc.ncbi.nlm.nih.gov/articles/PMC10346235/ |
+| published | CICIoMT 6-class | two-stage CatBoost (GitHub; not peer reviewed) | 90.39 | IAT kept; no cross-split de-dup; official test 1.61M rows | https://github.com/duaabn/CICIoMT2024 |
+| published | CICIoMT 19-class | RF (Dadkhah et al. IoT 2024) | 52.2-55.1 | dataset-paper baseline; secondary sources disagree | https://www.sciencedirect.com/science/article/pii/S2542660524002920 |
+| published | Bot-IoT 5-class | WOA+XGBoost | 95.99 | de-dup not stated | UNVERIFIED: web-search summary; paper not identified |
+| published | Bot-IoT 5-class | Random Forest | 99.69 | de-dup not stated | UNVERIFIED: web-search summary; paper not identified |
+| comparable | Bot-IoT 5-class | ours: ensemble+rule | 96.49 | strict (seq removed; de-dup) | outputs_v3/detector_v4/botiot_category.json |
+
+The published CICIoMT headline (two-stage CatBoost, 90.39) is reproduced only when the leaky `IAT` feature is kept (92.12); under the strict protocol the same method scores 78.13 on 6-class and 62.01 on 19-class, below ours. These published numbers use **different test sets** (and mostly a leaky feature), so the comparison is indicative;
 only the subset → full comparison above is row-matched. We do **not** claim state of the art on CICIoMT2024: later
 studies report far higher scores under different protocols, and a strict CICIoMT2024 reference was not found.
 

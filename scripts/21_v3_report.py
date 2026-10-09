@@ -255,6 +255,8 @@ lc = lj(ANA / "learning_curve.json")
 add("learning_curve", pd.DataFrame([{"train rows": r["n"], "fraction": r["frac"], "macro-F1 (val)": pct(r["macro_f1"]),
                                      "8 rare classes": pct(r["rare_f1"]), "other 26": pct(r["common_f1"])} for r in lc["points"]]))
 
+add("leaderboards", pd.read_csv(OUT / "tables" / "leaderboards.csv"))   # hand-curated sources; see the CSV
+
 # ---------------------------------------------------------------- outputs
 (OUT / "tables").mkdir(parents=True, exist_ok=True)
 md = {}
