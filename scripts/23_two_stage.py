@@ -25,7 +25,7 @@ def main():
     p = parser(__doc__)
     args = p.parse_args()
     paths = Paths(args.smoke)
-    for ds in ("ciciomt", "ciciomt_std"):
+    for ds in ("ciciomt",):
         for task in ("category", "attack"):
             data = load_processed(paths.processed(ds), task)
             tr, va, te = data.splits["train"], data.splits["validation"], data.splits["test"]
@@ -50,6 +50,10 @@ def main():
                    for t in np.round(np.arange(0.1, 0.95, 0.05), 2)}
             thr = max(f1v, key=f1v.get)
             m = classification_metrics(te.y, onehot(predict(Xt, thr)), data.n_classes, data.classes, full=True)
+            lc = paths.v3 / "logits" / f"{ds}_{task}"   # predictions as one-hot log-probs, for the paired bootstrap
+            lc.mkdir(parents=True, exist_ok=True)
+            for s, X in (("validation", Xv), ("test", Xt)):
+                np.save(lc / f"two_stage_s0_{s}.npy", np.log(np.clip(onehot(predict(X, thr)), 1e-6, 1)).astype(np.float16))
             save_json({"threshold": float(thr), "val_macro_f1": f1v[thr], "test": m}, paths.v3 / "two_stage" / f"{ds}_{task}.json")
             log.info("%s %s two-stage CatBoost: thr %.2f val %.4f test macro-F1 %.4f acc %.4f", ds, task, thr, f1v[thr],
                      m["macro_f1"], m["accuracy"])
