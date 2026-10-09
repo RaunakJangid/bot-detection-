@@ -20,6 +20,7 @@ train:
   eval_batch_size: 65536
 # Overrides merged into `train`, keyed by raw source (apply to every dataset built from it).
 dataset_overrides:
+  ciciot_full: {samples_per_epoch: 8000000}   # v3 full data: bounded epochs
   botiot:
     class_weight: none
     balance_power: 0.5

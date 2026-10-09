@@ -68,7 +68,7 @@ def ciciomt_category(label: str) -> str:
 
 
 def family_of(source: str, label: str) -> str:
-    return ciciot_family(label) if source == "ciciot" else ciciomt_category(label)
+    return ciciot_family(label) if source.startswith("ciciot") else ciciomt_category(label)
 
 
 def shared_class(source: str, label: str) -> str | None:
@@ -86,7 +86,7 @@ def cic_task_specs(source: str, labels: list[str], shared: bool) -> dict[str, Ta
         return {"binary": (["Benign", "Attack"], benign),
                 "shared5": (SHARED5, lambda l: shared_class(source, l))}
     present = {family_of(source, l) for l in labels}
-    if source == "ciciot":
+    if source.startswith("ciciot"):
         fams = [f for f in CICIOT_FAMILIES if f in present]
         return {"binary": (["Benign", "Attack"], benign), "family": (fams, ciciot_family),
                 "class34": (sorted(labels), lambda l: l)}
@@ -239,6 +239,12 @@ def _write_outputs(out_dir: Path, X: dict[str, np.ndarray] | None, ys: dict[str,
 def load_cic_frames(source: str, interim: Path, cfg: dict, rng: np.random.Generator) -> dict[str, pd.DataFrame]:
     if source == "ciciot":
         return {s: pd.read_parquet(interim / f"{s}.parquet") for s in SPLITS}
+    if source == "ciciot_full":   # train: the full merged CSVs; validation/test: the strict subset's own files
+        sub = interim.parent / "ciciot"
+        full = pd.read_parquet(interim / "all.parquet")
+        full[LABEL] = full[LABEL].astype("category")   # 46.6M label strings would cost ~3 GB
+        return {"train": full,
+                "validation": pd.read_parquet(sub / "validation.parquet"), "test": pd.read_parquet(sub / "test.parquet")}
     # CICIoMT2024: capture-level train/test as shipped; validation is a stratified slice of train.
     train, test = pd.read_parquet(interim / "train.parquet"), pd.read_parquet(interim / "test.parquet")
     v = cfg["ciciomt_val_frac"]
@@ -248,7 +254,8 @@ def load_cic_frames(source: str, interim: Path, cfg: dict, rng: np.random.Genera
 
 
 def cic_feature_columns(interim: Path) -> list[str]:
-    return [c for c in pq.ParquetFile(interim / "train.parquet").schema.names if c != LABEL]
+    f = interim / "train.parquet"
+    return [c for c in pq.ParquetFile(f if f.exists() else interim / "all.parquet").schema.names if c != LABEL]
 
 
 def shared_features(interims: dict[str, Path], drop: list[str]) -> list[str]:
@@ -279,7 +286,25 @@ def preprocess_cic(dataset: str, source: str, interim: Path, out_dir: Path, cfg:
 
     lab_index = {l: i for i, l in enumerate(labels)}
     codes = {s: df[LABEL].map(lab_index).to_numpy(np.int64) for s, df in frames.items()}
-    keep, dedup_stats = dedup_across_splits({s: row_hash(df[features]) for s, df in frames.items()}, codes)
+    hashes = {s: row_hash(df[features]) for s, df in frames.items()}
+    keep, dedup_stats = dedup_across_splits(hashes, codes)
+    if source == "ciciot_full":
+        # Directly comparable with the strict CICIoT2023 result: validation/test are EXACTLY the rows the
+        # strict subset kept (its train -> validation -> test de-dup is recomputed with the same code), and
+        # the full-data train set drops every vector that occurs anywhere in the raw validation/test files.
+        sub_train = pd.read_parquet(interim.parent / "ciciot" / "train.parquet")
+        sub_h = {"train": row_hash(sub_train[features]), "validation": hashes["validation"], "test": hashes["test"]}
+        sub_codes = {"train": sub_train[LABEL].map(lab_index).to_numpy(np.int64),
+                     "validation": codes["validation"], "test": codes["test"]}
+        del sub_train
+        sub_keep, _ = dedup_across_splits(sub_h, sub_codes)
+        keep["validation"], keep["test"] = sub_keep["validation"], sub_keep["test"]
+        tr_keep, tr_stats = dedup_mask(hashes["train"], codes["train"])
+        in_eval = np.isin(hashes["train"], np.concatenate([hashes["validation"], hashes["test"]]))
+        keep["train"] = tr_keep & ~in_eval
+        dedup_stats = {"train_internal": tr_stats, "train_rows_matching_eval_dropped": int((tr_keep & in_eval).sum()),
+                       "train_out": int(keep["train"].sum()), "validation_out": int(keep["validation"].sum()),
+                       "test_out": int(keep["test"].sum()), "eval_rows": "identical to the strict ciciot dataset"}
     log.info("%s de-dup across splits: %s", dataset, dedup_stats)
 
     raw, ys = {}, {t: {} for t in tasks}

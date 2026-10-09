@@ -1,0 +1,9 @@
+task,v2 teacher (5-seed mean),XGBoost,deep ensemble (5 ResMLP),w_ResMLP (val),ensemble,ensemble + rule
+CICIoT binary,94.15,95.11,94.34,0.4,95.25,95.32
+CICIoT 8-class,71.15,72.93,72.92,0.7,74.33,74.5
+CICIoT 34-class,68.09,68.57,69.31,0.6,70.69,71.25
+CICIoMT binary,97.71,96.71,97.89,0.0,96.71,96.69
+CICIoMT 6-class,80.65,79.75,81.21,0.4,81.62,81.42
+CICIoMT 19-class,69.87,70.39,70.44,0.5,71.6,71.1
+Bot-IoT binary,96.9,98.99,97.09,0.3,99.03,99.07
+Bot-IoT 5-class,92.26,95.63,93.24,0.4,95.81,96.33

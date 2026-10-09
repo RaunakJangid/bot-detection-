@@ -1,0 +1,13 @@
+dataset,unseen,student detect %,student+flyhash detect %,student+mahalanobis detect %,student test FPR %,student+flyhash test FPR %,student+mahalanobis test FPR %
+ciciomt,DDoS,100.0,100.0,100.0,3.7,6.9,2.4
+ciciomt,DoS,100.0,100.0,100.0,2.0,6.7,1.4
+ciciomt,MQTT,98.1,98.0,98.1,3.8,6.8,2.2
+ciciomt,Recon,89.0,90.3,89.4,1.0,6.6,1.4
+ciciomt,Spoofing,67.9,61.2,61.0,2.7,6.6,1.1
+ciciot,BruteForce,48.5,41.6,42.7,1.2,1.2,1.1
+ciciot,DDoS,100.0,100.0,100.0,1.2,1.2,1.1
+ciciot,DoS,100.0,100.0,100.0,1.1,1.2,1.1
+ciciot,Mirai,99.9,100.0,100.0,1.2,1.2,1.1
+ciciot,Recon,58.7,55.9,55.6,1.2,1.2,1.1
+ciciot,Spoofing,15.4,16.0,18.1,1.1,1.2,1.1
+ciciot,Web,43.5,39.5,40.6,1.2,1.2,1.1

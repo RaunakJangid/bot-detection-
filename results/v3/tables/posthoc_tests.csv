@@ -1,0 +1,23 @@
+model,rule,pairs,mean gain (pts),better,worse,"p (Wilcoxon, two-sided)"
+kd_all,logit adjustment,40,-0.0,6,2,0.31
+kd_all,LA + per-class bias,40,0.48,26,13,0.0012
+kd_mi,logit adjustment,40,0.22,9,0,0.021
+kd_mi,LA + per-class bias,40,0.77,25,9,0.00034
+kd_random,logit adjustment,40,-0.06,9,4,0.3
+kd_random,LA + per-class bias,40,1.12,26,10,0.0034
+kd_shap,logit adjustment,40,0.16,10,0,0.012
+kd_shap,LA + per-class bias,40,0.55,24,12,0.005
+kd_variance,logit adjustment,40,0.14,6,1,0.17
+kd_variance,LA + per-class bias,40,2.66,27,7,2.3e-05
+scratch_all,logit adjustment,40,0.14,13,1,0.0068
+scratch_all,LA + per-class bias,40,0.58,28,7,0.00014
+shield,logit adjustment,40,0.1,10,0,0.012
+shield,LA + per-class bias,40,0.67,26,9,0.00015
+teacher,logit adjustment,40,0.0,0,0,1.0
+teacher,LA + per-class bias,40,0.98,35,5,1.6e-09
+v3-kd_all_ens,logit adjustment,40,0.11,12,2,0.016
+v3-kd_all_ens,LA + per-class bias,40,0.34,26,8,0.0015
+v3-kd_shap_ens,logit adjustment,40,0.18,10,1,0.023
+v3-kd_shap_ens,LA + per-class bias,40,0.62,23,10,0.00098
+xgboost,logit adjustment,8,0.1,2,2,0.75
+xgboost,LA + per-class bias,8,0.47,5,2,0.17

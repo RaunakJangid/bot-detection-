@@ -12,7 +12,7 @@ import pandas as pd
 from shield.cli import parser, paths_for
 from shield.eval.resilience import betweenness, resilience_report
 from shield.eval.stats import friedman_ranks, nemenyi_cd, summarise, wilcoxon_vs
-from shield.placement.exact import brute_force
+from shield.placement.exact import brute_force, brute_force_parallel
 from shield.placement.runner import (DETERMINISTIC, STOCHASTIC, build_problem, compress_history,
                                      controller_mu, detector_mu_flow, run_algorithm, topology_and_latency,
                                      tuned_cfg)
@@ -115,9 +115,11 @@ def main():
     p = parser(__doc__, datasets=False)
     p.add_argument("--workers", type=int, default=None)
     p.add_argument("--analyse-only", action="store_true")
+    p.add_argument("--v3", action="store_true", help="v3 root: outputs_v3/placement (v3 tuning, v3 algorithm list)")
     args = p.parse_args()
     paths, cfg = paths_for(args), load_config("placement", args.smoke)
-    out_dir = paths.out("placement")
+    out_dir = paths.v3 / "placement" if args.v3 else paths.out("placement")
+    out_dir.mkdir(parents=True, exist_ok=True)
     if args.analyse_only:
         analyse(out_dir, cfg)
         return
@@ -161,6 +163,19 @@ def main():
 
     workers = args.workers or cfg["workers"]
     t0 = time.time()
+    if args.v3:   # exact optimum by parallel enumeration (all cores per instance), up to exact_limit subsets
+        _init(args.smoke, mu, tuned)
+        for topo_name, k, rho, _, _ in opt_tasks:
+            topo, problem = _problem(topo_name, k, rho)
+            r = brute_force_parallel(problem, cfg["exact_limit"])
+            row = {"topology": topo_name, "k": k, "rho": rho, "algorithm": "__optimum__", "seed": 0, "n": topo.n,
+                   "skipped": r is None, **({} if r is None else {
+                       "F_opt": r["best_F"], "best": r["best"], "evaluated": r["evaluated"], "seconds": r["seconds"]})}
+            append_jsonl(row, out_dir / "optimum.jsonl")
+            if r is not None:
+                log.info("optimum %s k=%d rho=%.1f: F* %.5f over %d subsets (%.0fs)", topo_name, k, rho,
+                         r["best_F"], r["evaluated"], r["seconds"])
+        opt_tasks = []
     with mp.get_context("spawn").Pool(workers, initializer=_init, initargs=(args.smoke, mu, tuned)) as pool:
         for i, row in enumerate(pool.imap_unordered(_run, opt_tasks), 1):
             append_jsonl(row, out_dir / "optimum.jsonl")

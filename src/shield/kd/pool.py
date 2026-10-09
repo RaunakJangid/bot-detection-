@@ -23,7 +23,7 @@ def run_spec(spec: dict) -> dict:
                             tcfg["model"], device, spec["force"], k_override=spec.get("k"),
                             variant_spec=spec.get("variant_spec"), run_name=spec.get("run_name"),
                             root=spec.get("root", "kd"), use_tuning=spec.get("use_tuning"),
-                            make_cache=spec.get("make_cache", False))
+                            make_cache=spec.get("make_cache", False), v3=spec.get("v3", False))
 
 
 def _label(spec: dict, m: dict) -> str:

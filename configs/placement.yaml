@@ -10,7 +10,11 @@ rho_values: [0.3, 0.5, 0.7, 0.9]
 rho_sweep_k: 4
 rho_default: 0.5
 # hybrid_eho_aco = full memetic hybrid; hybrid_* = component ablations (each removes/replaces one part).
-algorithms: [hybrid_eho_aco, hybrid_no_ants, hybrid_no_ls, hybrid_swap_ls, eho, aco, ga, pso, sa, random,
+# v3 adds gwo, gwo_sa (GWO + the hybrid's SA intensification), foa, woa, hho, de (placement/swarm.py).
+# The ACO redesign (hybrid_aco2, hybrid_aco2_no_ls, aco2) was tried and dropped: worse than the original on
+# the tuning graphs and on Kdl, and about 20 h for the full grid (partial runs remain in runs.jsonl).
+algorithms: [hybrid_eho_aco, hybrid_no_ants, hybrid_no_ls, hybrid_swap_ls, eho, aco, ga, pso, sa,
+             gwo, gwo_sa, foa, woa, hho, de, hybrid_fuzzy, hybrid_linear, random,
              kmedian, kcenter, kmeans, pagerank, ilp_ckm]
 
 controller:
@@ -47,6 +51,13 @@ aco:
 ga: {pop: 40, cx_rate: 0.9, mut_rate: 0.2, elite: 2, tournament: 3}
 pso: {swarm: 30, w: 0.4, c1: 0.3, c2: 0.3}
 sa: {t0_samples: 50, cooling: 0.999}
+aco2: {heuristic: marginal, reset_after: 20}   # v3 ACO redesign (on top of aco)
+gwo: {pack: 30, explore: 1.0, greedy: true}  # explore scales the a/2 random-slot probability
+gwo_sa: {every: 5, evals: 200, t0_frac: 0.05}
+foa: {flies: 20, radius: 0.5, p_local: 0.7}  # radius: max neighbour swaps as a fraction of k
+woa: {pod: 30, spiral: 0.5}
+hho: {hawks: 30, perch: 0.3, dives: 3}
+de: {pop: 30, F: 0.5, CR: 0.7, mut: 0.3}
 # Fair automatic tuning of every metaheuristic (scripts/07a_tune_placement.py): the same number of
 # candidate settings per algorithm, scored on TUNING graphs that are never used for evaluation.
 tuning:
@@ -91,14 +102,83 @@ tuning:
     sa:
       sa.t0_samples: [20, 50, 100]
       sa.cooling: [0.995, 0.998, 0.999, 0.9995]
+    gwo:
+      gwo.pack: [15, 30, 60]
+      gwo.explore: [0.25, 0.5, 1.0, 1.5]
+      gwo.greedy: [true, false]
+    gwo_sa:
+      gwo.pack: [15, 30, 60]
+      gwo.explore: [0.25, 0.5, 1.0, 1.5]
+      gwo_sa.every: [2, 5, 10]
+      gwo_sa.evals: [50, 200, 500]
+      gwo_sa.t0_frac: [0.01, 0.05, 0.2]
+    foa:
+      foa.flies: [10, 20, 40]
+      foa.radius: [0.25, 0.5, 1.0]
+      foa.p_local: [0.3, 0.5, 0.7, 0.9]
+    woa:
+      woa.pod: [15, 30, 60]
+      woa.spiral: [0.2, 0.5, 0.8]
+    hho:
+      hho.hawks: [15, 30, 60]
+      hho.perch: [0.1, 0.3, 0.5]
+      hho.dives: [1, 3, 5]
+    de:
+      de.pop: [15, 30, 60]
+      de.F: [0.3, 0.5, 0.8]
+      de.CR: [0.3, 0.7, 0.9]
+      de.mut: [0.1, 0.3, 0.6]
+    hybrid_aco2:
+      hybrid.n_clans: [3, 5, 8]
+      hybrid.clan_size: [5, 8, 12]
+      hybrid.alpha: [0.3, 0.5, 0.7]
+      hybrid.beta: [0.1, 0.3, 0.5]
+      hybrid.local_search_every: [2, 5, 10]
+      hybrid.local_search_evals: [50, 200, 500]
+      hybrid.sa_t0_frac: [0.01, 0.05, 0.2]
+      aco.evaporation: [0.05, 0.1, 0.2, 0.4]
+      aco.b: [1.0, 2.0, 4.0]
+      aco2.reset_after: [0, 10, 30]
+    aco2:
+      aco.n_ants: [10, 20, 40]
+      aco.a: [0.5, 1.0, 2.0]
+      aco.b: [1.0, 2.0, 4.0]
+      aco.evaporation: [0.05, 0.1, 0.2, 0.4]
+      aco2.reset_after: [0, 10, 30]
+    hybrid_fuzzy:
+      hybrid.n_clans: [3, 5, 8]
+      hybrid.clan_size: [5, 8, 12]
+      hybrid.alpha: [0.3, 0.5, 0.7]
+      hybrid.beta: [0.1, 0.3, 0.5]
+      hybrid.local_search_every: [2, 5, 10]
+      hybrid.local_search_evals: [50, 200, 500]
+      hybrid.sa_t0_frac: [0.01, 0.05, 0.2]
+      aco.evaporation: [0.05, 0.1, 0.2, 0.4]
+      aco.b: [1.0, 2.0, 4.0]
+      hybrid.smooth: [0.3, 0.5, 0.8]
+      hybrid.stall_gens: [3, 10, 30]
+    hybrid_linear:
+      hybrid.n_clans: [3, 5, 8]
+      hybrid.clan_size: [5, 8, 12]
+      hybrid.alpha: [0.3, 0.5, 0.7]
+      hybrid.beta: [0.1, 0.3, 0.5]
+      hybrid.local_search_every: [2, 5, 10]
+      hybrid.local_search_evals: [50, 200, 500]
+      hybrid.sa_t0_frac: [0.01, 0.05, 0.2]
+      aco.evaporation: [0.05, 0.1, 0.2, 0.4]
+      aco.b: [1.0, 2.0, 4.0]
+      hybrid.smooth: [0.3, 0.5, 0.8]
+      hybrid.stall_gens: [3, 10, 30]
   # Ablations reuse the tuned full hybrid's settings, so only the switched component differs.
-  inherit: {hybrid_no_ants: hybrid_eho_aco, hybrid_no_ls: hybrid_eho_aco, hybrid_swap_ls: hybrid_eho_aco}
+  inherit: {hybrid_no_ants: hybrid_eho_aco, hybrid_no_ls: hybrid_eho_aco, hybrid_swap_ls: hybrid_eho_aco,
+           hybrid_aco2_no_ls: hybrid_aco2}
 resilience:
   link_fail_fracs: [0.05, 0.10, 0.20]
   node_fail_fracs: [0.05, 0.10, 0.20]
   trials: 10
   max_double: 50
 brute_force_limit: 2000000     # exact search when C(n, k) is at most this
+exact_limit: 100000000         # v3 (07_placement.py --v3): parallel exhaustive search up to this many subsets
 ilp_time_limit: 120
 
 smoke:

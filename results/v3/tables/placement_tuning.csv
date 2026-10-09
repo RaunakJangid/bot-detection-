@@ -1,0 +1,15 @@
+algorithm,tuning score,default score
+hybrid_linear,1.0059,1.0396
+hybrid_eho_aco,1.0078,1.0332
+gwo_sa,1.0083,1.0458
+hybrid_fuzzy,1.0138,1.0389
+hho,1.0184,1.0441
+pso,1.0277,1.0964
+gwo,1.0284,1.0284
+ga,1.0308,1.108
+de,1.0317,1.0811
+sa,1.0319,1.0486
+aco,1.0489,1.084
+foa,1.0555,1.0769
+eho,1.081,1.1018
+woa,1.0838,1.1388

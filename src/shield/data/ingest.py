@@ -80,6 +80,38 @@ def ingest_ciciot(zip_path: Path, out_dir: Path, chunksize: int, max_rows: int |
     return counts
 
 
+def ingest_ciciot_full(path: Path, out_dir: Path, chunksize: int, force: bool = False) -> int:
+    """v3: the full CICIoT2023 = the 169 MERGED_CSV part files (a zip or a folder) -> one all.parquet.
+    The files carry no split; preprocessing makes a seeded stratified one before cross-split de-dup."""
+    out = out_dir / "all.parquet"
+    if out.exists() and not force:
+        n = pq.ParquetFile(out).metadata.num_rows
+        log.info("CICIoT2023 full: exists (%d rows), skipping", n)
+        return n
+    if path.is_dir():
+        members = sorted(str(p) for p in path.rglob("*.csv"))
+        opener = lambda m: open(m, "rb")
+    else:
+        zf = zipfile.ZipFile(path)
+        members = sorted(m for m in zf.namelist() if m.lower().endswith(".csv"))
+        opener = zf.open
+    log.info("CICIoT2023 full: %d CSV files", len(members))
+
+    def chunks():
+        for m in members:
+            with opener(m) as f:
+                for df in pd.read_csv(f, chunksize=chunksize, low_memory=False):
+                    df.columns = [c.strip() for c in df.columns]
+                    feats = [c for c in df.columns if c != CICIOT_LABEL]
+                    df[feats] = df[feats].apply(pd.to_numeric, errors="coerce").astype(np.float32)
+                    df[CICIOT_LABEL] = df[CICIOT_LABEL].astype(str).str.strip()
+                    yield df
+
+    n = _write_chunks(chunks(), out)
+    log.info("CICIoT2023 full: %d rows -> %s", n, out)
+    return n
+
+
 def ciciomt_label(member: str) -> str:
     """'CICIoMT2024/train/TCP_IP-DDoS-ICMP3_train.pcap.csv' -> 'DDoS-ICMP' (numbered parts merged)."""
     m = re.fullmatch(r"(.+)_(train|test)\.pcap\.csv", Path(member.replace("\\", "/")).name)

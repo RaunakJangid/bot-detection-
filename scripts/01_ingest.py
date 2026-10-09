@@ -1,7 +1,7 @@
 """Stream the dataset zips into Parquet (data/interim/<source>/) for every source the selected datasets need."""
 
 from shield.cli import paths_for, parser, registry, selected_datasets
-from shield.data.ingest import ingest_botiot, ingest_ciciomt, ingest_ciciot
+from shield.data.ingest import ingest_botiot, ingest_ciciomt, ingest_ciciot, ingest_ciciot_full
 from shield.utils.config import load_config
 
 
@@ -19,6 +19,10 @@ def main():
         if src == "ciciot":
             ingest_ciciot(paths.ciciot_zip, paths.interim("ciciot"), cfg["chunksize"], cfg["max_rows_per_file"],
                           args.force)
+        elif src == "ciciot_full":
+            if paths.ciciot_full is None:
+                raise SystemExit("set ciciot_full in configs/paths.yaml (zip or folder of the 169 part files)")
+            ingest_ciciot_full(paths.ciciot_full, paths.interim("ciciot_full"), cfg["chunksize"], args.force)
         elif src == "ciciomt":
             ingest_ciciomt(paths.ciciomt_zip, paths.interim("ciciomt"), cfg["chunksize"],
                            cfg["ciciomt_max_rows_per_file"], args.force)

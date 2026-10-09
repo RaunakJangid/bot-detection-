@@ -77,12 +77,25 @@ def build_cache(paths: Paths, dataset: str, task: str, model_name: str, seed: in
     return info
 
 
-def load_cache_dir(out: Path) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+def write_logit_cache(logits_train: np.ndarray, pred_test: np.ndarray, out: Path, **info) -> dict:
+    """Cache of a teacher that has no input gradients (e.g. an ensemble with trees): soft targets only."""
+    out.mkdir(parents=True, exist_ok=True)
+    np.save(out / "logits_train.npy", logits_train.astype(np.float16))
+    np.save(out / "pred_test.npy", pred_test.astype(np.int16))
+    info = {"version": CACHE_VERSION, "attr_class": None, "rows": len(logits_train),
+            "classes": logits_train.shape[1], **info}
+    save_json(info, out / "done.json")
+    return info
+
+
+def load_cache_dir(out: Path) -> tuple[np.ndarray, np.ndarray | None, np.ndarray]:
+    """(train logits, train attributions or None for a logits-only cache, test predictions)."""
     if not cache_ok(out):
         raise FileNotFoundError(f"No v{CACHE_VERSION} cache at {out}; run 05_cache_teacher.py "
                                 "(or the teacher-assistant pre-stage) first")
-    return (np.load(out / "logits_train.npy", mmap_mode="r"), np.load(out / "attr_train.npy", mmap_mode="r"),
-            np.load(out / "pred_test.npy"))
+    attr = out / "attr_train.npy"
+    return (np.load(out / "logits_train.npy", mmap_mode="r"),
+            np.load(attr, mmap_mode="r") if attr.exists() else None, np.load(out / "pred_test.npy"))
 
 
 def load_cache(paths: Paths, dataset: str, task: str, model_name: str, seed: int):

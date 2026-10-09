@@ -36,8 +36,14 @@ SPEC_KEYS = ("select", "ranking", "kd", "T", "alpha", "beta", "gamma", "dkd_alph
              "k", "hidden", "train_fraction")
 
 
-def kd_dir(paths: Paths, dataset: str, task: str, variant: str, seed: int, root: str = "kd") -> Path:
-    return paths.outputs / root / f"{dataset}_{task}" / f"{variant}_s{seed}"
+def kd_dir(paths: Paths, dataset: str, task: str, variant: str, seed: int, root: str = "kd",
+           base: Path | None = None) -> Path:
+    return (base or paths.outputs) / root / f"{dataset}_{task}" / f"{variant}_s{seed}"
+
+
+def ensemble_cache_dir(paths: Paths, dataset: str, task: str) -> Path:
+    """v3 step 1: soft targets of the validation-weighted teacher ensemble (11_ensemble_teacher.py)."""
+    return paths.v3 / "teacher_ens" / f"{dataset}_{task}" / "cache"
 
 
 def tuning_choice(paths: Paths) -> dict | None:
@@ -56,7 +62,8 @@ def resolve_spec(cfg: dict, variant: dict, dataset: str, task: str, choice: dict
         spec["ranking"] = choice.get("ranking", spec["ranking"])
         reg = Registry()
         if not reg.spec(dataset).get("shared"):  # per-task size/feature budget (shared datasets keep defaults)
-            spec.update(choice.get("per_task", {}).get(f"{reg.source(dataset)}_{task}", {}))
+            src = {"ciciot_full": "ciciot"}.get(reg.source(dataset), reg.source(dataset))   # v3: reuse the
+            spec.update(choice.get("per_task", {}).get(f"{src}_{task}", {}))   # subset's validation choice
     spec.update({key: variant[key] for key in SPEC_KEYS if key in variant})
     if k_override is not None:
         spec["k"] = int(k_override)
@@ -77,12 +84,13 @@ def _columns(X: np.ndarray, S: np.ndarray) -> np.ndarray:
 def run_distillation(paths: Paths, dataset: str, task: str, variant: str, seed: int, cfg: dict,
                      teacher_model: str, device: torch.device, force: bool = False,
                      k_override: int | None = None, variant_spec: dict | None = None, run_name: str | None = None,
-                     root: str = "kd", use_tuning: bool | None = None, make_cache: bool = False) -> dict:
+                     root: str = "kd", use_tuning: bool | None = None, make_cache: bool = False,
+                     v3: bool = False) -> dict:
     """variant: a key of cfg["variants"] (or a label when `variant_spec` is given explicitly).
     k_override stores the run as '<variant>_k<k>'. make_cache=True (teacher assistant) also caches this
-    model's outputs for other students to distil from."""
+    model's outputs for other students to distil from. v3=True writes under the v3 root."""
     run_name = run_name or (variant if k_override is None else f"{variant}_k{k_override}")
-    out = kd_dir(paths, dataset, task, run_name, seed, root)
+    out = kd_dir(paths, dataset, task, run_name, seed, root, base=paths.v3 if v3 else None)
     if (out / "metrics.json").exists() and not force and (not make_cache or (out / "cache" / "done.json").exists()):
         log.info("KD %s/%s exists, skipping", out.parent.name, out.name)
         return load_json(out / "metrics.json")
@@ -118,14 +126,16 @@ def run_distillation(paths: Paths, dataset: str, task: str, variant: str, seed: 
 
     # Which model the student distils from, and the original teacher's test predictions (agreement).
     teacher_cache = cache_dir(paths, dataset, task, teacher_model, t_seed)
-    kd_cache = (kd_dir(paths, dataset, task, "assistant", t_seed, root) / "cache"
-                if spec["teacher"] == "assistant" else teacher_cache)
+    kd_cache = {"assistant": kd_dir(paths, dataset, task, "assistant", t_seed, root) / "cache",
+                "ensemble": ensemble_cache_dir(paths, dataset, task)}.get(spec["teacher"], teacher_cache)
     _, _, teacher_pred = load_cache_dir(teacher_cache)
     extras = []
     if loss.needs_logits or loss.needs_attr:
         t_logits, t_attr, kd_pred = load_cache_dir(kd_cache)
         extras.append(t_logits)
         if loss.needs_attr:
+            if t_attr is None:
+                raise ValueError(f"{kd_cache} has no attributions; the attribution loss needs gamma = 0 here")
             extras.append(t_attr)
     else:
         kd_pred = teacher_pred
@@ -180,7 +190,7 @@ def run_distillation(paths: Paths, dataset: str, task: str, variant: str, seed: 
     fid = cfg["fidelity"]
     metrics["fidelity"] = (student_fidelity(paths, dataset, task, teacher_model, t_seed, model, S, tr.X,
                                             global_imp, fid, device, seed)
-                           if seed in fid["seeds"] and root == "kd" else None)
+                           if seed in fid["seeds"] and root == "kd" and not v3 else None)
     save_json(metrics, out / "metrics.json")
     log.info("KD %s test macro-F1 %.4f (int8 %.4f), agreement %.4f, k=%d, params=%d", name,
              metrics["test"]["macro_f1"], metrics["test_int8"]["macro_f1"], metrics["agreement"]["teacher"],

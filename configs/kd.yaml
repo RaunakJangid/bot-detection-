@@ -49,6 +49,7 @@ train:
   samples_per_epoch: null
   eval_batch_size: 65536
 dataset_overrides:
+  ciciot_full: {samples_per_epoch: 8000000}   # v3 full data: bounded epochs
   botiot:
     balance_power: 0.5
     samples_per_epoch: 8000000

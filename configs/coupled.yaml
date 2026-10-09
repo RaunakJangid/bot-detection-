@@ -16,6 +16,11 @@ require_failover: true         # ... also under the worst single-controller fail
 # objective.sla_ms) is unreachable on continent-scale networks for any k, which hides the comparison.
 sla: {mode: relative, quantile: 0.95, slack: 1.25}
 workers: 16
+# v3 (07b_coupled.py --v3): the models are the student, the expert, and the student -> expert cascade at
+# these escalation budgets (validation-set thresholds from 14_cascade.py). The cascade's per-flow cost is
+# 1/mu_student + e/mu_expert, e = its measured test escalation rate.
+v3:
+  cascade: {student: shield, expert: teacher, expert_latency_model: teacher, budgets: [0.02, 0.05, 0.1, 0.2]}
 
 smoke:
   topologies: [syn20]

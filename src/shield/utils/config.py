@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import os
 from pathlib import Path
 from typing import Any
 
@@ -43,10 +44,16 @@ class Paths:
         cfg = load_config("paths", smoke)
         self.smoke = smoke
         self.ciciot_zip = Path(cfg["ciciot_zip"])
+        # v3: the full CICIoT2023 (169 MERGED_CSV part files), a zip or a folder; optional
+        self.ciciot_full = Path(cfg["ciciot_full"]) if cfg.get("ciciot_full") else None
         self.botiot_zip = Path(cfg["botiot_zip"])
         self.ciciomt_zip = Path(cfg["ciciomt_zip"])
         self.data = resolve(cfg["data_dir"])
-        self.outputs = resolve(cfg["outputs_dir"])
+        # SHIELD_OUTPUTS_DIR overrides outputs_dir for one process (v3 full-data runs: outputs_full)
+        self.outputs = resolve(os.environ.get("SHIELD_OUTPUTS_DIR") or cfg["outputs_dir"])
+        # v3 experiments read finished runs from `outputs` and write only here (next to it by default).
+        self.v3 = (resolve(cfg["v3_outputs_dir"]) if "v3_outputs_dir" in cfg
+                   else self.outputs.with_name("outputs_smoke_v3" if smoke else "outputs_v3"))
 
     def interim(self, dataset: str) -> Path:
         return self.data / "interim" / dataset

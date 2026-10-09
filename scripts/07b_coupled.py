@@ -48,11 +48,35 @@ def _run(task: tuple) -> dict:
     return {**base, "skipped": False, **d, "feasible": feasible(d, k, ccfg), "best": best.best}
 
 
+def cascade_models(paths, ccfg: dict, run_key: str, entry: dict) -> tuple[dict, dict]:
+    """v3: single-core throughput and test macro-F1 of the student -> expert cascade at each escalation
+    budget (thresholds set on validation by 14_cascade.py). One flow costs 1/mu_student + e/mu_expert."""
+    c = ccfg["v3"]["cascade"]
+    df = pd.read_csv(paths.v3 / "cascade" / "rules" / "summary.csv")
+    df = df[(df.dataset + "_" + df.task == run_key) & (df.student == c["student"]) & (df.expert == c["expert"])]
+    if df.empty:
+        raise SystemExit(f"no cascade results for {run_key} {c}; run 14_cascade.py first")
+    mu_s, mu_e = entry[c["student"]]["throughput_b256"], entry[c["expert_latency_model"]]["throughput_b256"]
+    mu_flow, f1 = {}, {}
+    for b, g in df.groupby("budget"):
+        if b not in c["budgets"] and b not in (0.0, 1.0):
+            continue
+        e = g["test_escalated"].mean()
+        name = c["student"] if b == 0 else c["expert_latency_model"] if b == 1 else f"cascade_{round(100 * b)}pct"
+        mu_flow[name] = 1.0 / (1.0 / mu_s + e / mu_e) if 0 < b < 1 else (mu_s if b == 0 else mu_e)
+        f1[name] = {"test_macro_f1": float(g["test_macro_f1"].mean()), "test_macro_f1_std": float(g["test_macro_f1"].std()),
+                    "test_escalated": float(e)}
+    return mu_flow, f1
+
+
 def main():
-    args = parser(__doc__, datasets=False).parse_args()
+    p = parser(__doc__, datasets=False)
+    p.add_argument("--v3", action="store_true", help="v3: cascade operating points, v3 tuning, outputs_v3/coupled")
+    args = p.parse_args()
     paths = paths_for(args)
     pcfg, ccfg = load_config("placement", args.smoke), load_config("coupled", args.smoke)
-    out_dir = paths.out("coupled")
+    out_dir = paths.v3 / "coupled" if args.v3 else paths.out("coupled")
+    out_dir.mkdir(parents=True, exist_ok=True)
     lat_file = paths.outputs / "latency" / "latency.json"
     if not lat_file.exists():
         raise SystemExit(f"{lat_file} not found; run 06_latency.py first")
@@ -61,14 +85,20 @@ def main():
     if run_key not in table:
         run_key = next(k for k in table if not k.startswith("_"))
     entry = table[run_key]
-    missing = [m for m in ccfg["models"] + [ccfg["demand_reference_model"]] if m not in entry]
-    if missing:
-        raise SystemExit(f"latency.json[{run_key}] lacks {missing}")
-    mu = {m: controller_mu(pcfg, entry[m]["throughput_b256"]) for m in set(ccfg["models"]) | {ccfg["demand_reference_model"]}}
+    accuracy = None
+    if args.v3:
+        mu_flow, accuracy = cascade_models(paths, ccfg, run_key, entry)
+        ccfg["models"] = list(mu_flow)
+    else:
+        missing = [m for m in ccfg["models"] + [ccfg["demand_reference_model"]] if m not in entry]
+        if missing:
+            raise SystemExit(f"latency.json[{run_key}] lacks {missing}")
+        mu_flow = {m: entry[m]["throughput_b256"] for m in set(ccfg["models"]) | {ccfg["demand_reference_model"]}}
+    mu = {m: controller_mu(pcfg, f) for m, f in mu_flow.items()}
     for name in ccfg["topologies"]:
         if not name.startswith("syn"):
             download_zoo(name, paths.topologies)
-    tuned_file = paths.outputs / "placement" / "tuned_params.json"
+    tuned_file = (paths.v3 if args.v3 else paths.outputs) / "placement" / "tuned_params.json"
     tuned = load_json(tuned_file) if tuned_file.exists() else None
 
     sla = {}
@@ -103,7 +133,8 @@ def main():
             .unstack("model").reindex(index=full, columns=ccfg["models"]))
     mink.to_csv(out_dir / "min_controllers.csv")
     save_json({"run_key": run_key, "mu_controller": mu, "k_max": ccfg["k_max"], "sla_ms": sla,
-               "sla_rule": ccfg.get("sla"), "tuned_hybrid": bool(tuned and "hybrid_eho_aco" in tuned)},
+               "sla_rule": ccfg.get("sla"), "tuned_hybrid": bool(tuned and "hybrid_eho_aco" in tuned),
+               "mu_flow_single_core": mu_flow, "accuracy": accuracy},
               out_dir / "coupled_meta.json")
     log.info("Minimum controllers meeting the SLA (blank = more than k_max):\n%s", mink.to_string())
 

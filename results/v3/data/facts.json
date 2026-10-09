@@ -1,0 +1,110 @@
+{
+ "fidelity": {
+  "pairs": 40,
+  "mean_diff": 0.11854261488037579,
+  "wins": 33,
+  "p_two_sided": 0.00023327588314714376,
+  "per_task": [
+   {
+    "dataset": "botiot",
+    "task": "binary",
+    "kd_shap": 0.453,
+    "shield": 0.32
+   },
+   {
+    "dataset": "botiot",
+    "task": "category",
+    "kd_shap": 0.708,
+    "shield": 0.885
+   },
+   {
+    "dataset": "ciciomt",
+    "task": "attack",
+    "kd_shap": 0.885,
+    "shield": 0.9
+   },
+   {
+    "dataset": "ciciomt",
+    "task": "binary",
+    "kd_shap": 0.122,
+    "shield": 0.276
+   },
+   {
+    "dataset": "ciciomt",
+    "task": "category",
+    "kd_shap": 0.814,
+    "shield": 0.856
+   },
+   {
+    "dataset": "ciciot",
+    "task": "binary",
+    "kd_shap": 0.144,
+    "shield": 0.664
+   },
+   {
+    "dataset": "ciciot",
+    "task": "class34",
+    "kd_shap": 0.799,
+    "shield": 0.885
+   },
+   {
+    "dataset": "ciciot",
+    "task": "family",
+    "kd_shap": 0.803,
+    "shield": 0.89
+   }
+  ]
+ },
+ "placement": {
+  "friedman_p_topology": 1.4664207914824385e-14,
+  "n_exact": 37,
+  "evals": [
+   20000
+  ]
+ },
+ "surge_detection": {
+  "precision": 0.9974364808718624,
+  "recall": 0.993536052841885,
+  "f1": 0.9954824462770918,
+  "fpr": 0.06688511950655358,
+  "escalation_benign": 0.15046260601387818,
+  "escalation_attack": 0.046489791172708954,
+  "budget": 0.05,
+  "note": "flow-level attack-vs-benign, SHIELD s0 cascade student, CICIoT 34-class test"
+ },
+ "full_dedup": {
+  "train_internal": {
+   "rows_in": 46686579,
+   "unique_feature_rows": 27789519,
+   "duplicate_rows_dropped": 18897060,
+   "conflicting_hashes": 48574,
+   "conflicting_rows_dropped": 991233,
+   "rows_out": 27740945
+  },
+  "train_rows_matching_eval_dropped": 1911644,
+  "train_out": 25829301,
+  "validation_out": 728213,
+  "test_out": 705401,
+  "eval_rows": "identical to the strict ciciot dataset"
+ },
+ "learning_curve_fit": {
+  "macro_f1": {
+   "now": 0.6902876782206729,
+   "at_9x": 0.729035353976542,
+   "asymptote": 0.9999939839369937,
+   "c": 0.0613356756985946
+  },
+  "rare_f1": {
+   "now": 0.18126588931246568,
+   "at_9x": 0.2766312217975526,
+   "asymptote": 0.9999872451124575,
+   "c": 0.056828244855604226
+  },
+  "common_f1": {
+   "now": 0.8469097671155057,
+   "at_9x": 0.8658241438165792,
+   "asymptote": 0.9299525454471376,
+   "c": 0.11947847339080872
+  }
+ }
+}

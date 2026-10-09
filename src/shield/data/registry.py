@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from shield.utils.config import load_config
 
-SOURCES = ("ciciot", "ciciomt", "botiot")
+SOURCES = ("ciciot", "ciciomt", "botiot", "ciciot_full")   # ciciot_full: all 169 merged CSVs (v3)
 
 
 class Registry:

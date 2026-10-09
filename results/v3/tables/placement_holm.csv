@@ -1,0 +1,18 @@
+vs,hybrid_eho_aco significantly better (instances of 56),hybrid_eho_aco significantly worse
+hybrid_linear,9,7
+hybrid_fuzzy,14,4
+hybrid_no_ants,4,0
+hybrid_no_ls,41,0
+hybrid_swap_ls,38,0
+eho,34,1
+aco,31,2
+ga,17,0
+pso,21,1
+sa,9,1
+gwo,25,0
+gwo_sa,9,8
+foa,16,0
+woa,37,0
+hho,11,1
+de,13,3
+random,41,0

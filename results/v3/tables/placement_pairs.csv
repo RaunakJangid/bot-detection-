@@ -1,0 +1,7 @@
+A,B,instances A better,instances A worse,p (56 instances),topologies A better (of 8),p (8 topologies)
+hybrid_eho_aco,gwo_sa,16,17,0.32,2,0.078
+hybrid_linear,gwo_sa,18,15,0.79,3,0.69
+hybrid_linear,hybrid_eho_aco,17,17,0.39,5,0.078
+hybrid_fuzzy,gwo_sa,2,34,2.5e-07,0,0.016
+hybrid_fuzzy,hybrid_eho_aco,15,24,0.64,4,0.3
+hybrid_eho_aco,hybrid_no_ants,16,13,0.5,4,0.38

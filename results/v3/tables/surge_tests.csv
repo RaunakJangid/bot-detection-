@@ -1,0 +1,4 @@
+isolation (S2) vs,mean benign-drop diff (pts),S2 lower in,p
+S1_replace_k+1,2.28,28/180,6.5e-14
+S1_replace_k,-3.3,73/180,0.015
+S0_static,-3.34,78/180,0.0011

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
-from scipy.stats import friedmanchisquare, wilcoxon
+from scipy.stats import friedmanchisquare, studentized_range, wilcoxon
 
 INSTANCE = ["topology", "k", "rho"]
 
@@ -90,4 +90,6 @@ def ranks_and_friedman(table: pd.DataFrame, higher_is_better: bool) -> tuple[pd.
 def nemenyi_cd(k: int, n_blocks: int) -> float | None:
     """Critical difference of average ranks at alpha = 0.05 (two methods differ if ranks differ by >= CD)."""
     q = NEMENYI_Q05.get(k)
+    if q is None and k > 1:   # beyond the table: q_0.05 = studentized range quantile (df = inf) / sqrt(2)
+        q = float(studentized_range.ppf(0.95, k, 1e6) / np.sqrt(2))
     return None if q is None or n_blocks < 1 else q * np.sqrt(k * (k + 1) / (6.0 * n_blocks))

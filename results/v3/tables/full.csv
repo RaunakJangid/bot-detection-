@@ -1,0 +1,4 @@
+task,teacher subset,teacher full,XGBoost subset,XGBoost full,ens4 subset,ens4 full,ens4+rule subset,ens4+rule full,SHIELD+rule subset,SHIELD+rule full,cascade 10% full,cascade 20% full
+CICIoT binary,94.15,94.74,95.11,95.57,95.41,95.7,95.41,95.7,94.27,94.54,95.7,95.7
+CICIoT 8-class,71.15,74.09,72.93,75.07,74.23,77.11,74.6,77.01,69.49,69.6,75.81,76.36
+CICIoT 34-class,68.09,69.39,68.56,70.81,70.76,72.63,70.98,73.22,65.65,67.47,72.13,72.68

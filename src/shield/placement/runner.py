@@ -16,6 +16,7 @@ from shield.placement.eho import run_eho
 from shield.placement.exact import ilp_capacitated_kmedian
 from shield.placement.hybrid_eho_aco import run_hybrid
 from shield.placement.objective import Instance, PlacementProblem, make_demand
+from shield.placement.swarm import run_de, run_foa, run_gwo, run_hho, run_woa
 from shield.placement.topology import Topology, get_topology, latency_matrix
 from shield.utils.io import load_json
 
@@ -25,8 +26,13 @@ HYBRID_VARIANTS = {
     "hybrid_no_ants": {"separation": "random"},   # EHO restarts instead of ACO ants
     "hybrid_no_ls": {"local_search": "none"},     # no intensification
     "hybrid_swap_ls": {"local_search": "swap"},   # v1's 1-swap search instead of SA intensification
+    "hybrid_fuzzy": {"adaptive": "fuzzy"},        # v3: fuzzy-adaptive evaporation + ant rebuilds (diagnosed
+    "hybrid_linear": {"adaptive": "linear"},      #     premature convergence); linear = plain-rule control
 }
-STOCHASTIC = [*HYBRID_VARIANTS, "eho", "aco", "ga", "pso", "sa", "random", "kmeans"]
+SWARM = ["gwo", "gwo_sa", "foa", "woa", "hho", "de"]   # v3 baselines (swarm.py)
+# v3 ACO redesign (marginal-gain heuristic + MMAS stagnation reset; config section aco2 on top of aco).
+ACO2 = ["hybrid_aco2", "hybrid_aco2_no_ls", "aco2"]
+STOCHASTIC = [*HYBRID_VARIANTS, "eho", "aco", "ga", "pso", "sa", *SWARM, *ACO2, "random", "kmeans"]
 DETERMINISTIC = ["kmedian", "kcenter", "pagerank", "ilp_ckm"]
 DEMAND_SEED = 7  # demand pattern is part of the instance, identical for every algorithm and run
 
@@ -95,6 +101,23 @@ def run_algorithm(name: str, problem: PlacementProblem, topo: Topology, cfg: dic
         run_pso(ev, k, cfg["pso"], rng)
     elif name == "sa":
         run_sa(ev, k, cfg["sa"], rng)
+    elif name in ACO2:
+        aco2 = {**cfg["aco"], **cfg["aco2"]}
+        if name == "aco2":
+            run_aco(ev, k, aco2, rng)
+        else:
+            run_hybrid(ev, k, {**cfg["hybrid"], **({"local_search": "none"} if name.endswith("no_ls") else {})},
+                       aco2, rng)
+    elif name in ("gwo", "gwo_sa"):
+        run_gwo(ev, k, cfg["gwo"], rng, ls_cfg=cfg["gwo_sa"] if name == "gwo_sa" else None)
+    elif name == "foa":
+        run_foa(ev, k, cfg["foa"], rng)
+    elif name == "woa":
+        run_woa(ev, k, cfg["woa"], rng)
+    elif name == "hho":
+        run_hho(ev, k, cfg["hho"], rng)
+    elif name == "de":
+        run_de(ev, k, cfg["de"], rng)
     elif name == "random":
         run_random(ev, k, rng)
     elif name == "kmedian":

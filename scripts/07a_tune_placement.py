@@ -37,9 +37,11 @@ def _run(task: tuple) -> dict:
 def main():
     p = parser(__doc__, datasets=False)
     p.add_argument("--workers", type=int, default=None)
+    p.add_argument("--v3", action="store_true", help="write to the v3 root (outputs_v3/placement)")
     args = p.parse_args()
     paths, cfg = paths_for(args), load_config("placement", args.smoke)
-    out_dir = paths.out("placement")
+    out_dir = paths.v3 / "placement" if args.v3 else paths.out("placement")
+    out_dir.mkdir(parents=True, exist_ok=True)
     out_file = out_dir / "tuned_params.json"
     if out_file.exists() and not args.force:
         log.info("Placement tuning already done (%s)", out_file)

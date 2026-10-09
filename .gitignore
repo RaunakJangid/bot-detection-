@@ -12,3 +12,4 @@ __pycache__/
 /outputs/
 /outputs_smoke/
 *.zip
+catboost_info/

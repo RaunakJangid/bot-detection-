@@ -1,0 +1,17 @@
+task,expert,student alone,5% budget,10% budget,20% budget,expert alone,matched: F1,matched: test escalated %
+Bot-IoT 5-class,ensemble,92.53,93.61,94.3,95.22,96.33,95.49,25.0
+Bot-IoT 5-class,teacher,92.53,93.23,93.49,93.72,94.05,93.74,20.0
+Bot-IoT binary,ensemble,98.32,99.08,99.08,99.08,99.07,99.02,0.8
+Bot-IoT binary,teacher,98.32,99.18,99.18,99.18,99.18,99.08,0.8
+CICIoMT 19-class,ensemble,69.61,71.05,71.53,71.93,71.16,71.54,57.0
+CICIoMT 19-class,teacher,69.61,70.0,70.15,70.28,70.24,70.3,24.6
+CICIoMT 6-class,ensemble,82.53,82.97,82.92,82.68,81.42,81.48,55.6
+CICIoMT 6-class,teacher,82.53,82.57,82.5,82.19,81.05,82.3,27.7
+CICIoMT binary,ensemble,96.39,96.69,96.69,96.69,96.69,96.72,1.4
+CICIoMT binary,teacher,96.39,97.7,97.7,97.7,97.7,96.39,0.0
+CICIoT 34-class,ensemble,65.71,69.73,70.29,70.73,71.27,70.83,24.0
+CICIoT 34-class,teacher,65.71,67.81,68.02,68.13,68.23,67.81,5.0
+CICIoT 8-class,ensemble,69.53,73.34,73.77,74.18,74.5,74.18,20.2
+CICIoT 8-class,teacher,69.53,70.72,70.83,70.91,70.93,70.56,2.9
+CICIoT binary,ensemble,94.27,95.3,95.31,95.31,95.31,95.06,1.0
+CICIoT binary,teacher,94.27,95.05,95.06,95.06,95.06,94.92,1.0

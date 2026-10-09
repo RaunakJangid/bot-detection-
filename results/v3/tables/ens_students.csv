@@ -1,0 +1,7 @@
+comparison,decision,pairs,mean diff (pts),better,p
+kd_all_ens vs kd_all,raw,40,-0.09,24,0.56
+kd_all_ens vs kd_all,+rule,40,-0.24,20,0.64
+kd_shap_ens vs kd_shap,raw,40,-0.05,14,0.12
+kd_shap_ens vs kd_shap,+rule,40,0.02,22,0.85
+kd_shap_ens vs shield,raw,40,0.09,21,0.54
+kd_shap_ens vs shield,+rule,40,0.04,24,0.21

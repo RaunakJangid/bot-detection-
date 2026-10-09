@@ -1,0 +1,5 @@
+task,1-NN error (val) %,Bayes error bound % (Cover-Hart),XGBoost test error %,Teacher s0 test error %
+CICIoT 34-class,17.24,9.04 - 17.24,11.83,13.38
+CICIoT 8-class,14.13,7.38 - 14.13,9.87,11.34
+CICIoMT 19-class,19.79,10.48 - 19.79,19.86,26.6
+CICIoMT 6-class,19.37,10.32 - 19.37,18.57,19.86

@@ -1,0 +1,7 @@
+model,test macro-F1 (CICIoT 34),test escalated %
+shield,65.71,0.0
+cascade_2pct,67.42,2.0
+cascade_5pct,67.81,5.0
+cascade_10pct,68.02,10.1
+cascade_20pct,68.13,20.0
+teacher,68.23,100.0

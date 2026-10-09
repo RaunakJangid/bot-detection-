@@ -86,10 +86,23 @@ def test_every_algorithm_returns_valid_solution(alg):
                       "local_search_every": 5, "local_search_evals": 20},
            "aco": {"n_ants": 10, "a": 1.0, "b": 2.0, "evaporation": 0.1, "mask_quantile": 0.05},
            "ga": {"pop": 20, "cx_rate": 0.9, "mut_rate": 0.2, "elite": 2, "tournament": 3},
-           "pso": {"swarm": 15, "w": 0.4, "c1": 0.3, "c2": 0.3}, "sa": {"t0_samples": 20, "cooling": 0.99}}
+           "pso": {"swarm": 15, "w": 0.4, "c1": 0.3, "c2": 0.3}, "sa": {"t0_samples": 20, "cooling": 0.99},
+           "gwo": {"pack": 10, "explore": 1.0, "greedy": True}, "gwo_sa": {"every": 2, "evals": 20, "t0_frac": 0.05},
+           "foa": {"flies": 10, "radius": 0.5, "p_local": 0.7}, "woa": {"pod": 10, "spiral": 0.5},
+           "hho": {"hawks": 10, "perch": 0.3, "dives": 2}, "de": {"pop": 10, "F": 0.5, "CR": 0.7, "mut": 0.3},
+           "aco2": {"heuristic": "marginal", "reset_after": 5}}
     res = run_algorithm(alg, P, topo, cfg, seed=1)
     assert res is not None and len(set(res.best.tolist())) == 3 and res.n_evals <= 300
     assert res.best_F == pytest.approx(P(res.best))
+
+
+def test_parallel_brute_force_matches_serial():
+    from shield.placement.exact import brute_force, brute_force_parallel
+    _, P = _small_problem(n=20, k=3)
+    a, b = brute_force(P, 10**6), brute_force_parallel(P, 10**6)
+    assert b["evaluated"] == a["evaluated"]
+    assert b["best_F"] == pytest.approx(a["best_F"])
+    assert P(b["best"]) == pytest.approx(a["best_F"])
 
 
 def test_evaluator_budget():

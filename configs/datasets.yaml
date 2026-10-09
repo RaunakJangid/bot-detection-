@@ -6,12 +6,16 @@
 
 leaky_features:
   ciciot: [IAT]       # encodes capture time, not packet timing (59% macro-F1 alone over 34 classes)
+  ciciot_full: [IAT]
   ciciomt: [IAT]      # same CIC feature extractor
   botiot: [seq]       # Argus record sequence number (file order / recording schedule)
 
 datasets:
   ciciot:      {source: ciciot,  protocol: strict, group: main, tasks: [binary, family, class34]}
   ciciomt:     {source: ciciomt, protocol: strict, group: main, tasks: [binary, category, attack]}
+  # v3: train = all 169 merged CSVs (about 46.6M rows) minus every vector in the strict validation/test files;
+  # validation/test = exactly the strict ciciot rows, so results are directly comparable. Own group.
+  ciciot_full: {source: ciciot_full, protocol: strict, group: full, tasks: [binary, family, class34]}
   botiot:      {source: botiot,  protocol: strict, group: main, tasks: [binary, category]}
   xciciot:     {source: ciciot,  protocol: strict, group: cross, shared: true, tasks: [binary, shared5],
                 seeds: [0, 1, 2], variants: [scratch_all, kd_all, kd_shap, shield]}
@@ -26,7 +30,7 @@ datasets:
 
 # Which groups the optional stages run on.
 stages:
-  xgboost: [main, cross]
+  xgboost: [main, cross, full]
   baselines: [main, cross]
   k_sweep: [main]
   latency: [main]

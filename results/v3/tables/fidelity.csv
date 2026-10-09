@@ -1,0 +1,10 @@
+task,kd_shap,shield
+Bot-IoT 5-class,0.708,0.885
+Bot-IoT binary,0.453,0.32
+CICIoMT 19-class,0.885,0.9
+CICIoMT 6-class,0.814,0.856
+CICIoMT binary,0.122,0.276
+CICIoT 34-class,0.799,0.885
+CICIoT 8-class,0.803,0.89
+CICIoT binary,0.144,0.664
+mean over tasks,0.591,0.709

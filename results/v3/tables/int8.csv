@@ -1,0 +1,10 @@
+task,v2 dynamic int8 drop (pts),v3 W8A8 drop (pts),v3 W8A16 drop (pts),SHIELD fp32 bytes,SHIELD int8 bytes
+CICIoT binary,20.96,0.05,0.03,12936.0,3992.0
+CICIoT 8-class,27.36,1.17,0.99,52000.0,14536.0
+CICIoT 34-class,23.86,1.41,1.17,58760.0,16408.0
+CICIoMT binary,7.52,0.2,0.14,11912.0,3720.0
+CICIoMT 6-class,9.39,1.26,1.49,43288.0,12280.0
+CICIoMT 19-class,15.56,1.64,2.28,54860.0,15328.0
+Bot-IoT binary,0.23,-0.13,-0.01,11912.0,3720.0
+Bot-IoT 5-class,14.52,2.82,2.06,40980.0,11680.0
+mean (all 160 models),14.93,1.05,1.02,,
