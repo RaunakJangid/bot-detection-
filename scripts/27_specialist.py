@@ -60,7 +60,8 @@ def main():
     es = vi[stratified_sample(va.y[vi], min(len(vi), 300_000), rng, 30)]
     log.info("specialist train rows %d (group %d classes), class counts min %d", len(idx), len(G), int(cnt.min()))
     clf = xgb.XGBClassifier(n_estimators=3000, max_depth=10, learning_rate=0.1, tree_method="hist", device="cuda",
-                            early_stopping_rounds=100, objective="multi:softprob", random_state=0)
+                            early_stopping_rounds=100, random_state=0,
+                            objective="multi:softprob" if len(G) > 2 else "binary:logistic")
     clf.fit(np.asarray(tr.X[idx]), ys, sample_weight=w[ys], eval_set=[(np.asarray(va.X[es]), gmap[va.y[es]])], verbose=False)
 
     def combine(split, X, lam):
