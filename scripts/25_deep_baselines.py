@@ -1,4 +1,4 @@
-"""Deep IDS baselines (CNN-LSTM, CNN-GRU, FT-Transformer) under the strict protocol: same splits, same training
+﻿"""Deep IDS baselines (CNN-LSTM, CNN-GRU, FT-Transformer) under the strict protocol: same splits, same training
 loop and early stopping on VALIDATION macro-F1 as our teachers (teacher.yaml train settings, inverse-sqrt class
 weights), test scored once. Logits -> outputs_v3/logits/<dataset>_<task>/<model>_s<seed>_{validation,test}.npy."""
 
@@ -51,7 +51,11 @@ def main():
                 batcher = Batcher(tr.X, tr.y, tcfg["batch_size"], device, samples_per_epoch=tcfg["samples_per_epoch"],
                                   seed=seed)
                 t0 = time.time()
-                fit(model, batcher, va.X, va.y, lambda m, b: ce(m(b[0]), b[1]), tcfg, device, data.n_classes,
+                if name in ("tabm", "tabm_s"):   # mean of the k members' losses
+                    loss = lambda m, b: ce(m(b[0]).flatten(0, 1), b[1].repeat_interleave(m.k))
+                else:
+                    loss = lambda m, b: ce(m(b[0]), b[1])
+                fit(model, batcher, va.X, va.y, loss, tcfg, device, data.n_classes,
                     f"{ds}_{task}_{name}_s{seed}")
                 del batcher
                 z = {s: predict_logits(model, data.splits[s].X, device, 32768, amp=True) for s in ("validation", "test")}

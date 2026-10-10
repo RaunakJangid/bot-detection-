@@ -1,4 +1,4 @@
-"""Instances, the algorithm registry and the per-run record used by the experiment scripts."""
+﻿"""Instances, the algorithm registry and the per-run record used by the experiment scripts."""
 
 from __future__ import annotations
 
@@ -28,6 +28,7 @@ HYBRID_VARIANTS = {
     "hybrid_swap_ls": {"local_search": "swap"},   # v1's 1-swap search instead of SA intensification
     "hybrid_fuzzy": {"adaptive": "fuzzy"},        # v3: fuzzy-adaptive evaporation + ant rebuilds (diagnosed
     "hybrid_linear": {"adaptive": "linear"},      #     premature convergence); linear = plain-rule control
+    "hybrid_credit": {"adaptive": "credit"},      #     credit = self-tuning Sugeno consequents (no hand-set outputs)
 }
 SWARM = ["gwo", "gwo_sa", "foa", "woa", "hho", "de"]   # v3 baselines (swarm.py)
 # v3 ACO redesign (marginal-gain heuristic + MMAS stagnation reset; config section aco2 on top of aco).

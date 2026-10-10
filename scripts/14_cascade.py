@@ -1,4 +1,4 @@
-"""v3 step 5: student -> expert cascade (src/shield/eval/cascade.py).
+﻿"""v3 step 5: student -> expert cascade (src/shield/eval/cascade.py).
 
 For each main task, student variant, seed and expert ("teacher" = the KD teacher, seed 0; "ensemble" =
 the step-1 teacher ensemble): decision rules (step 2) are fitted on validation for student and expert,
@@ -36,10 +36,11 @@ def main():
     p.add_argument("--students", nargs="*", default=["shield", "kd_all", "kd_shap"])
     p.add_argument("--experts", nargs="*", default=["teacher", "ensemble"])
     p.add_argument("--no-rules", action="store_true", help="raw argmax decisions (no step-2 rules)")
+    p.add_argument("--score", default="confidence", choices=["confidence", "entropy"], help="escalation score")
     args = p.parse_args()
     paths, reg, device = Paths(args.smoke), registry(args), get_device(args.cpu)
     tcfg, kcfg = load_config("teacher", args.smoke), load_config("kd", args.smoke)
-    tag = "raw" if args.no_rules else "rules"
+    tag = ("raw" if args.no_rules else "rules") + ("" if args.score == "confidence" else f"_{args.score}")
     rows = []
     for ds in [d for d in selected_datasets(args) if d in reg.resolve("main,full")]:
         for task in reg.tasks(ds, args.task):
@@ -71,7 +72,7 @@ def main():
                             rows.extend(load_json(out)["rows"])
                             continue
                         curve = cascade_curve(zs["validation"], ze["validation"], yv, zs["test"], ze["test"], yt,
-                                              n, BUDGETS)
+                                              n, BUDGETS, args.score)
                         match = matching_budget(curve, e_val)
                         base = {"dataset": ds, "task": task, "student": student, "seed": seed, "expert": e,
                                 "expert_val_f1": e_val, "expert_test_f1": e_test}

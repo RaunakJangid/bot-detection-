@@ -1,4 +1,4 @@
-seed: 2026
+﻿seed: 2026
 workers: 16
 runs: 30                       # independent seeds per (algorithm, topology, k, rho)
 budget: 20000                  # objective evaluations per run, same for every metaheuristic
@@ -14,7 +14,7 @@ rho_default: 0.5
 # The ACO redesign (hybrid_aco2, hybrid_aco2_no_ls, aco2) was tried and dropped: worse than the original on
 # the tuning graphs and on Kdl, and about 20 h for the full grid (partial runs remain in runs.jsonl).
 algorithms: [hybrid_eho_aco, hybrid_no_ants, hybrid_no_ls, hybrid_swap_ls, eho, aco, ga, pso, sa,
-             gwo, gwo_sa, foa, woa, hho, de, hybrid_fuzzy, hybrid_linear, random,
+             gwo, gwo_sa, foa, woa, hho, de, hybrid_fuzzy, hybrid_linear, hybrid_credit, random,
              kmedian, kcenter, kmeans, pagerank, ilp_ckm]
 
 controller:
@@ -169,6 +169,20 @@ tuning:
       aco.b: [1.0, 2.0, 4.0]
       hybrid.smooth: [0.3, 0.5, 0.8]
       hybrid.stall_gens: [3, 10, 30]
+    hybrid_credit:
+      hybrid.n_clans: [3, 5, 8]
+      hybrid.clan_size: [5, 8, 12]
+      hybrid.alpha: [0.3, 0.5, 0.7]
+      hybrid.beta: [0.1, 0.3, 0.5]
+      hybrid.local_search_every: [2, 5, 10]
+      hybrid.local_search_evals: [50, 200, 500]
+      hybrid.sa_t0_frac: [0.01, 0.05, 0.2]
+      aco.evaporation: [0.05, 0.1, 0.2, 0.4]
+      aco.b: [1.0, 2.0, 4.0]
+      hybrid.smooth: [0.3, 0.5, 0.8]
+      hybrid.stall_gens: [3, 10, 30]
+      hybrid.eta: [0.1, 0.5, 1.0]
+      hybrid.sigma: [0.05, 0.15, 0.3]
   # Ablations reuse the tuned full hybrid's settings, so only the switched component differs.
   inherit: {hybrid_no_ants: hybrid_eho_aco, hybrid_no_ls: hybrid_eho_aco, hybrid_swap_ls: hybrid_eho_aco,
            hybrid_aco2_no_ls: hybrid_aco2}

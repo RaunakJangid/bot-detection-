@@ -1,4 +1,4 @@
-"""Hybrid EHO-ACO (memetic).
+﻿"""Hybrid EHO-ACO (memetic).
 
 * EHO clan structure does exploitation (elephants follow matriarchs, matriarchs follow consensus).
 * Separating operator: the worst elephant of each clan is rebuilt by an ACO ant ("ants"), so restarts
@@ -69,6 +69,36 @@ def adaptive_control(stagnation: float, diversity: float, mode: str) -> float:
     return sum(r * o for r, o in rules) / w if w > 0 else 0.0
 
 
+class CreditFuzzy:
+    """Self-tuning Sugeno controller ("credit"): the same 4 rule antecedents as "fuzzy", but no hand-set
+    consequents. Every consequent starts at 0.5 and is learned online, within the run, from the search's own
+    improvement signal: the applied pressure is perturbed (x = x_hat + N(0, sigma)) and each rule's consequent
+    moves along its firing share of (improved - running improvement rate) * perturbation (REINFORCE with a
+    baseline). Free parameters eta, sigma are tuned on the tuning graphs only."""
+
+    def __init__(self, eta: float, sigma: float, rng: np.random.Generator):
+        self.o, self.eta, self.sigma, self.rng = np.full(4, 0.5), eta, sigma, rng
+        self.base, self.last = 0.5, None
+
+    def act(self, stagnation: float, diversity: float) -> float:
+        s_hi, s_lo = _tri(stagnation, 0.3, 1.0, 1.0), _tri(stagnation, 0.0, 0.0, 0.7)
+        d_lo, d_hi = _tri(diversity, 0.0, 0.0, 0.5), _tri(diversity, 0.2, 1.0, 1.0)
+        w = np.array([min(s_hi, d_lo), min(s_hi, d_hi), min(s_lo, d_lo), min(s_lo, d_hi)])
+        w = w / w.sum() if w.sum() > 0 else np.full(4, 0.25)
+        eps = self.rng.normal(0.0, self.sigma)
+        x = float(np.clip(w @ self.o + eps, 0.0, 1.0))
+        self.last = (w, x - w @ self.o)
+        return x
+
+    def credit(self, improved: bool) -> None:
+        if self.last is None:
+            return
+        w, eps = self.last
+        g = float(improved)
+        self.o = np.clip(self.o + self.eta * w * (g - self.base) * eps / self.sigma, 0.0, 1.0)
+        self.base = 0.9 * self.base + 0.1 * g
+
+
 def run_hybrid(ev: Evaluator, k: int, cfg: dict, aco_cfg: dict, rng: np.random.Generator) -> None:
     p = ev.problem
     colony = Colony(p.D, p.lam, aco_cfg, rng)
@@ -81,6 +111,7 @@ def run_hybrid(ev: Evaluator, k: int, cfg: dict, aco_cfg: dict, rng: np.random.G
     mode = cfg.get("adaptive", "none")
     stall_gens, x = cfg.get("stall_gens", 10), 0.0
     gen_cfg, last_best, stalled = cfg, np.inf, 0
+    ctl = CreditFuzzy(cfg.get("eta", 0.5), cfg.get("sigma", 0.15), rng) if mode == "credit" else None
     try:
         clans = init_clans(ev, k, cfg["n_clans"], cfg["clan_size"], rng, separator)
         gen = 0
@@ -89,11 +120,15 @@ def run_hybrid(ev: Evaluator, k: int, cfg: dict, aco_cfg: dict, rng: np.random.G
             gen += 1
             matriarchs = [min(clan, key=lambda e: e[1]) for clan in clans]
             if mode != "none":   # adapt evaporation and the number of ant-rebuilt elephants per clan
-                stalled = 0 if ev.best_F < last_best - 1e-12 else stalled + 1
+                improved = ev.best_F < last_best - 1e-12
+                stalled = 0 if improved else stalled + 1
+                if ctl is not None:
+                    ctl.credit(improved)
                 last_best = min(last_best, ev.best_F)
                 used = len(set(np.concatenate([C for clan in clans for C, _ in clan]).tolist()))
                 div = (used - k) / max(1, min(p.n, k * sum(len(c) for c in clans)) - k)
-                x = adaptive_control(min(1.0, stalled / stall_gens), min(1.0, max(0.0, div)), mode)
+                state = (min(1.0, stalled / stall_gens), min(1.0, max(0.0, div)))
+                x = ctl.act(*state) if ctl is not None else adaptive_control(*state, mode)
                 gen_cfg = {**cfg, "ants_per_clan": max(cfg.get("ants_per_clan", 1),
                                                          int(round(x * (cfg["clan_size"] - 1))))}
             colony.update(matriarchs + [(ev.best, ev.best_F)], ev.best_F)

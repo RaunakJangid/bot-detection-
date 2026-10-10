@@ -12,14 +12,15 @@ from shield.eval.posthoc import apply_bias, fit_decision_rule
 from shield.utils.config import Paths
 from shield.utils.io import save_json
 
-a = parser(__doc__).parse_args()
+p_ = parser(__doc__); p_.add_argument("--seeds", type=int, default=0); a = p_.parse_args()
 P, ds, task = Paths(), a.dataset, a.task
 d = load_processed(P.processed(ds), task)
 n, yv, yt = d.n_classes, d.splits["validation"].y, d.splits["test"].y
 prior = np.bincount(d.splits["train"].y, minlength=n) / len(d.splits["train"].y)
 lc = P.v3 / "logits" / f"{ds}_{task}"
 ld = lambda m, s: np.load(lc / f"{m}_{s}.npy").astype(np.float32)
-sv, st = ld("shield_s0", "validation"), ld("shield_s0", "test")
+import sys; SEED = int(sys.argv[sys.argv.index("--seeds") + 1]) if "--seeds" in sys.argv else 0
+sv, st = ld(f"shield_s{SEED}", "validation"), ld(f"shield_s{SEED}", "test")
 b = fit_decision_rule(sv, yv, prior)["bias"]
 sv, st = apply_bias(sv, b), apply_bias(st, b)
 eb = np.asarray(json.load(open(P.v3 / "detector_v4" / f"{ds}_{task}.json"))["rule_bias"])
@@ -29,7 +30,8 @@ if spec.exists():   # the specialist only stores test outputs; use it for the te
     et = np.load(spec).astype(np.float32)
 ben = next(i for i, c in enumerate(d.classes) if c in ("BenignTraffic", "Benign", "Normal"))
 f1 = lambda y, p: classification_metrics(y, np.eye(n, dtype=np.float32)[p], n)["macro_f1"]
-A = np.zeros(len(yv), bool); A[stratified_sample(yv, len(yv) // 2, np.random.default_rng(0), 1)] = True
+A = np.zeros(len(yv), bool); A[stratified_sample(yv, len(yv) // 2, np.random.default_rng(SEED), 1)] = True
+torch.manual_seed(SEED)
 feat = lambda s: np.concatenate([s, softmax(s).max(1, keepdims=True)], 1)
 target = ((sv.argmax(1) != yv) & (ev.argmax(1) == yv)).astype(np.float32)
 X = torch.as_tensor(feat(sv[A])); Y = torch.as_tensor(target[A])
@@ -39,10 +41,12 @@ for _ in range(300):
 score = lambda s: g(torch.as_tensor(feat(s))).squeeze(1).detach().numpy()
 gv, gt = score(sv[~A]), score(st)
 cv, ct = -softmax(sv[~A]).max(1), -softmax(st).max(1)   # higher = escalate
+mg = lambda s: -np.diff(np.sort(softmax(s), 1)[:, -2:], axis=1)[:, 0]   # -(top1 - top2)
+en = lambda s: -(softmax(s) * np.log(np.clip(softmax(s), 1e-12, 1))).sum(1)
 out = {}
-for name, (sb, stest) in {"confidence": (cv, ct), "gate": (gv, gt)}.items():
+for name, (sb, stest) in {"confidence": (cv, ct), "margin": (mg(sv[~A]), mg(st)), "entropy": (en(sv[~A]), en(st)), "gate": (gv, gt)}.items():
     for benign in (False, True):
-        for bud in (0.05, 0.1, 0.2):
+        for bud in (0.02, 0.05, 0.1, 0.2):
             thr = np.quantile(sb, 1 - bud)
             esc = stest > thr
             if benign:
@@ -51,4 +55,4 @@ for name, (sb, stest) in {"confidence": (cv, ct), "gate": (gv, gt)}.items():
             k = f"{name}{'+benign' if benign else ''}@{bud}"
             out[k] = {"test_f1": f1(yt, pred), "escalated": float(esc.mean())}
             print(k, round(100 * out[k]["test_f1"], 2), round(100 * out[k]["escalated"], 1), flush=True)
-save_json(out, P.v3 / "gate" / f"{ds}_{task}.json")
+save_json(out, P.v3 / "gate" / f"{ds}_{task}_s{SEED}.json")
