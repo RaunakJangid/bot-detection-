@@ -30,10 +30,11 @@ def main():
     p.add_argument("--models", nargs="*", default=["cnn_lstm", "cnn_gru", "ftt"])
     p.add_argument("--seeds", type=int, nargs="*", default=[0])
     p.add_argument("--epochs", type=int, default=30)
+    p.add_argument("--jobs", nargs="*", default=None, help="dataset:task pairs (default: JOBS)")
     args = p.parse_args()
     paths, device = Paths(args.smoke), get_device(args.cpu)
     tcfg_all = load_config("teacher", args.smoke)
-    for ds, task in JOBS:
+    for ds, task in [tuple(j.split(":")) for j in args.jobs] if args.jobs else JOBS:
         data = load_processed(paths.processed(ds), task)
         tr, va, te = data.splits["train"], data.splits["validation"], data.splits["test"]
         tcfg = {**train_cfg_for(tcfg_all, ds), "epochs": args.epochs, "batch_size": 4096, "amp": True,

@@ -76,12 +76,17 @@ def gpu_available() -> bool:
     return torch.cuda.is_available()
 
 
-def xgb_logits(run_dir, X: np.ndarray, n_classes: int, chunk: int = 1_000_000) -> np.ndarray:
-    """Log-probabilities over all n_classes from a saved XGBoost run (absent classes get ~log 0)."""
-    m = load_json(run_dir / "metrics.json")
-    present = np.asarray(m["classes_present"])
+def load_xgb(run_dir) -> tuple:
+    """(booster, metrics) of a saved XGBoost run; load once when predicting repeatedly (full-data models are ~0.8 GB)."""
     booster = xgb.Booster()
     booster.load_model(run_dir / "model.json")
+    return booster, load_json(run_dir / "metrics.json")
+
+
+def xgb_logits(run_dir, X: np.ndarray, n_classes: int, chunk: int = 1_000_000, loaded: tuple | None = None) -> np.ndarray:
+    """Log-probabilities over all n_classes from a saved XGBoost run (absent classes get ~log 0)."""
+    booster, m = loaded if loaded is not None else load_xgb(run_dir)
+    present = np.asarray(m["classes_present"])
     best = m.get("best_iteration")
     proba = np.zeros((len(X), n_classes))
     for i in range(0, len(X), chunk):

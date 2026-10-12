@@ -44,7 +44,7 @@ def main():
     from shield.eval.metrics import classification_metrics
     from shield.eval.predictions import load_student, run_dir
     from shield.models.train import load_teacher
-    from shield.models.xgb import xgb_logits
+    from shield.models.xgb import load_xgb, xgb_logits
     from shield.utils.config import Paths
     from shield.utils.device import get_device
     P, dev = Paths(args.smoke), get_device(args.cpu)
@@ -95,10 +95,12 @@ def main():
     tnet, _ = load_teacher(run_dir(P, ds, task, "teacher", 0), dev)
     models["teacher_resmlp"] = lambda X: predict_logits(tnet, X, dev, 65536, amp=True)
     xr = run_dir(P, ds, task, "xgboost", 0)
-    models["xgboost"] = lambda X: xgb_logits(xr, X, d.n_classes)
+    xb = load_xgb(xr)                                       # load the ~0.8 GB booster once, not per call
+    models["xgboost"] = lambda X: xgb_logits(xr, X, d.n_classes, loaded=xb)
 
     res = {}
     for name, fn in models.items():
+        log.info("%s: scoring %d perturbation grids", name, len(S_GRID) * len(T_GRID))
         base = fn(X0).argmax(1)
         det = base != ben                                   # detected as attack when unperturbed
         evade = {}                                          # (s, t) -> mask of flows labelled Benign
