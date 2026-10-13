@@ -1,0 +1,13 @@
+setting,metric,gbdt,ensemble,large_neural,small_mlp_kd,small_mlp_scratch,kd_vs_scratch_p
+ciciomt_binary (E2),"FPR% @1% target, fixed",7.494,7.623,1.899,1.673,2.925,0.349
+ciciomt_category (E2),"FPR% @1% target, fixed",6.983,5.862,4.715,2.002,2.867,0.551
+ciciomt_attack (E2),"FPR% @1% target, fixed",1.343,6.559,2.737,2.01,1.495,0.068
+ciciot_class34 (E2),"FPR% @1% target, fixed",1.103,1.106,1.095,1.094,1.067,0.24
+iot23_same_family (E3),"FPR% @1% target, fixed",36.903,34.057,28.125,12.538,10.734,
+iot23_same_family (E3),test ROC-AUC (pooled),0.571,0.666,0.693,0.689,0.68,
+iot23_capture_shift (E3),"FPR% @1% target, fixed",10.198,31.042,23.014,18.995,35.359,
+iot23_capture_shift (E3),test ROC-AUC (pooled),0.526,0.212,0.064,0.057,0.048,
+iot23_random_control (E3),"FPR% @1% target, fixed",1.098,1.347,1.106,1.138,1.154,
+iot23_random_control (E3),test ROC-AUC (pooled),0.997,0.998,0.997,0.996,0.996,
+unsw_realhome (E7),"FPR% @1% target, fixed",3.2,,3.06,17.14,18.91,
+unsw_realhome (E7),"FPR% after 1,000-flow commissioning",1.18,,0.89,0.99,1.28,
