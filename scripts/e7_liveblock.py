@@ -8,9 +8,13 @@ conn.log, computes the IoT-23 Zeek features (no service one-hots), scores each f
 flagged flows within 10 s (the same count rule idea as Sapkota et al. 2025).
 Timeline: 0-60 s benign only (commissioning window), then attacks on the server: SYN flood (500 pkt/s, 20 s), UDP
 flood (500 pkt/s, 20 s), nmap SYN scan (ports 1-2000), slow SYN probe (10 pkt/s, 30 s). Benign traffic runs
-throughout. Two runs: mode `lab` (threshold = IoT-23 validation 99th benign percentile) and mode `commissioned`
-(threshold = 99th percentile of the scores seen in the 60 s benign window; label-free given a clean window). In each
-run the other threshold is evaluated in shadow (flags only).
+throughout. Runs: mode `lab` (threshold = IoT-23 validation 99th benign percentile), mode `commissioned`
+(threshold = 99th percentile of the scores seen in the 60 s benign window; label-free given a clean window), and mode
+`guarded` = commissioned + the label-free score-shift warning of row 28aj: every 50 flows the KS distance between
+the last 300 scores and the commissioning scores is compared with the alpha = 0.001 two-sample critical value; while
+the warning is on, the model is not trusted alone and a per-source rate fallback (also learned in the benign window)
+blocks any source whose new-flow count in a 5 s Zeek-time window exceeds max(10, 3 x the largest benign per-source
+count seen while commissioning). In each run the other thresholds are evaluated in shadow (flags only).
 Per run: per attacker time-to-block, packets sent vs dropped by the rule; benign hosts wrongly blocked; share of
 benign flows flagged; Zeek-to-decision lag and per-flow scoring time."""
 import collections
@@ -131,8 +135,20 @@ def run(mode):
         hosts[ip].cmd(f"python3 /tmp/benign.py {SRV} {total} > /dev/null 2>&1 &")
     det = Detector()
     st = {"thr": {"lab": det.lab_thr, "commissioned": None}, "blocked": {}, "warm_scores": [], "flows": [],
-          "flag_times": collections.defaultdict(collections.deque)}
+          "flag_times": collections.defaultdict(collections.deque), "block_reason": {}, "warn_on": [],
+          "src_ts": collections.defaultdict(collections.deque), "warm_rate_max": 0, "rate_thr": None,
+          "recent": collections.deque(maxlen=300), "warning": False, "n_post": 0}
     stop = threading.Event()
+
+    def block(src, why):
+        subprocess.run(["ovs-ofctl", "add-flow", "s1", f"priority=100,ip,nw_src={src},actions=drop"])
+        st["blocked"][src] = time.time() - T0
+        st["block_reason"][src] = why
+
+    def ks(a, b):
+        a, b = np.sort(a), np.sort(b)
+        v = np.concatenate([a, b])
+        return float(np.max(np.abs(np.searchsorted(a, v, "right") / len(a) - np.searchsorted(b, v, "right") / len(b))))
 
     def tail():
         path = f"{ZK}/conn.log"
@@ -158,21 +174,43 @@ def run(mode):
             except ValueError:
                 lag = float("nan")
             rel = t_proc - T0
+            try:
+                zts = float(r["ts"])
+            except ValueError:
+                zts = t_proc
+            sq = st["src_ts"][src]; sq.append(zts)
+            while sq and zts - sq[0] > 5.0:
+                sq.popleft()
             if rel < WARM:
                 st["warm_scores"].append(sc)
+                st["warm_rate_max"] = max(st["warm_rate_max"], len(sq))
             elif st["thr"]["commissioned"] is None:
                 ws = np.array(st["warm_scores"])
                 st["thr"]["commissioned"] = float(np.quantile(ws, 0.99)) if len(ws) >= 50 else det.lab_thr
+                st["rate_thr"] = max(10, 3 * st["warm_rate_max"])
             st["flows"].append({"t": rel, "src": src, "score": sc, "lag": lag, "score_ms": 1000 * dt,
                                 "proto": r.get("proto"), "state": r.get("conn_state")})
-            thr = st["thr"][mode]
-            if rel >= WARM and thr is not None and sc > thr and src not in st["blocked"]:
+            thr = st["thr"]["commissioned" if mode == "guarded" else mode]
+            if rel >= WARM:
+                st["recent"].append(sc); st["n_post"] += 1
+                if mode == "guarded" and st["n_post"] % 50 == 0 and len(st["recent"]) >= 100:
+                    n1, n2 = len(st["recent"]), len(st["warm_scores"])
+                    crit = 1.949 * np.sqrt((n1 + n2) / (n1 * n2))          # two-sample KS, alpha = 0.001
+                    w = ks(np.array(st["recent"]), np.array(st["warm_scores"])) > crit
+                    if w != st["warning"]:
+                        st["warn_on"].append((round(rel, 2), bool(w)))
+                    st["warning"] = w
+            if src in st["blocked"] or rel < WARM:
+                continue
+            if thr is not None and sc > thr:
                 q = st["flag_times"][src]; q.append(t_proc)
                 while q and t_proc - q[0] > WINDOW:
                     q.popleft()
                 if len(q) >= COUNT:
-                    subprocess.run(["ovs-ofctl", "add-flow", "s1", f"priority=100,ip,nw_src={src},actions=drop"])
-                    st["blocked"][src] = time.time() - T0
+                    block(src, "model")
+                    continue
+            if mode == "guarded" and st["warning"] and st["rate_thr"] and len(sq) > st["rate_thr"]:
+                block(src, "rate_fallback")
 
     th = threading.Thread(target=tail, daemon=True); th.start()
     time.sleep(max(0, WARM + 5 - (time.time() - T0)))
@@ -195,14 +233,16 @@ def run(mode):
             ip = line.split("nw_src=")[1].split(",")[0].split(" ")[0]
             dropped[ip] = int(line.split("n_packets=")[1].split(",")[0])
     net.stop()
-    res = {"mode": mode, "thresholds": st["thr"], "n_warm_flows": len(st["warm_scores"]), "attacks": {}, "benign": {}}
+    res = {"mode": mode, "thresholds": st["thr"], "n_warm_flows": len(st["warm_scores"]), "attacks": {}, "benign": {},
+           "rate_threshold_flows_per_5s": st["rate_thr"], "warm_rate_max": st["warm_rate_max"],
+           "warning_changes": st["warn_on"], "block_reason": st["block_reason"]}
     for name, ip in ATT.items():
         out = open(f"{ZK}/{name}.out").read() if os.path.exists(f"{ZK}/{name}.out") else ""
         sent = None
         if "packets transmitted" in out:
             sent = int(out.split("packets transmitted")[0].split()[-1])
         fl = [f for f in st["flows"] if f["src"] == ip]
-        thr = st["thr"][mode]
+        thr = st["thr"]["commissioned" if mode == "guarded" else mode]
         res["attacks"][name] = {"start_s": starts.get(name), "blocked_at_s": st["blocked"].get(ip),
                                 "time_to_block_s": (st["blocked"][ip] - starts[name]) if ip in st["blocked"] else None,
                                 "packets_sent": sent, "packets_dropped": dropped.get(ip, 0),

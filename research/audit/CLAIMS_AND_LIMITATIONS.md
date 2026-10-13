@@ -16,6 +16,11 @@ Status key: **CLAIM** = supported, may be stated; **QUALIFY** = state only with 
 | "Published 99% results are protocol artefacts" | **DROP** | Overbroad; see wording above |
 | CICIoT2023 window-count features are collection artefacts | CLAIM (pending family/34-class arms) | Number/Weight take three value pairs (5.5/38.5, 9.5/141.55, 13.5/244.6) tied to the 10/100-packet windows of the dataset paper (Sec. 4); Number+Weight alone give 85.4 macro-F1 / 97.2% accuracy on binary; removing them costs 0.07 F1 (redundant with other features) |
 | Remaining headroom is small | CLAIM | 1-NN Cover–Hart bound 9.0–17.2% error vs XGBoost 11.8% (CICIoT 34) — asymptotic estimate |
+| Almahaqeri et al.'s pipeline is inflated by its protocol (row 28aa) | CLAIM, exact wording | "Re-running the published pipeline under its own protocol gives 76.1% macro-F1 / 99.3% accuracy; under the strict protocol 67.7% / 87.9% (+8.4 F1 from protocol alone). The reported 88.8% macro-F1 was not reproduced (final grid and CV folds unreported)" |
+| Undersampling / SMOTE rebalancing helps rare classes (row 28z) | **DROP** | No gain over the base; SMOTE below plain undersampling at every threshold; benign false alarms 13–24%. Mechanism: rare classes overlap benign (1–20% same-class neighbours, 18–40% benign) |
+| Logit adjustment of class weights (row 28an) | CLAIM (minor) | "+0.64 macro-F1 over the unweighted model at equal benign false alarms (71.98 vs 71.34 at 3.4%)" |
+| A tuned single XGBoost (any search method) reaches the best model (row 28ab) | **DROP** | 73.0 < ens4 73.6 / experts 75.4; GWO+SA best of three searches only by 0.1–0.4 |
+| Leaky protocols inflate tiny models less (rows 28ag, 28ai) | QUALIFY | "With the student's signed-log input scaling, retaining IAT gave the student -2.8 to +0.6 F1 vs +7.5 to +15 for XGBoost; with a rank transform of IAT the same student gains +7.3 to +12.4, so the effect is set by input scaling, not model size." Never say "tiny models are immune" |
 
 ## Operating point and shift
 
@@ -41,6 +46,12 @@ Status key: **CLAIM** = supported, may be stated; **QUALIFY** = state only with 
 | Label-free contamination-corrected quantile restores it to 1.2–1.4% median | QUALIFY | Works for small/large neural and most GBDT; fails for XGBoost/ensembles (confident false alarms) |
 | Ensembles' recall edge under shift is bought with false alarms | CLAIM | 99.83% at 6–8% FPR vs 99.74–99.78% for all models at ~1% after recalibration (binary detection) |
 | Large ensembles produce confident false alarms under shift; small models' are marginal | CLAIM | 0.1%-target FPR: 1.6–5.3% vs 0.11–0.47% |
+| Tail/budget metrics (row 28ah, Ha & Kim's style) | CLAIM | "At a 1% target on CICIoMT the worst 5% of models reach 7.0–8.6x the target and 37–51% stay within 3x; after a 1,000-flow benign recalibration the worst 5% are at 1.10–1.11x and all models are within 3x. IoT-23: p95 35–38x, 0% within 3x. Real home: p95 19.8x -> 1.63x after commissioning" |
+| A label-free score-shift test flags the unfixable regime (row 28aj) | CLAIM, with interval | "Over 18 shift settings (7 with lost ranking, 495 model instances) the KS distance between validation and deployment score distributions separates lost-ranking settings with AUC 0.97 (bootstrap 95% CI 0.89–1.00); conformal abstention 0.53, domain-classifier AUC 0.53, ATC 0.74." State that 7 of 16 LOCO captures were usable after de-duplication |
+| Conformal abstention is a reliable label-free monitor (Ahmed et al. 2026) | DROP for our setting | AUC 0.53 [0.25, 0.82] for flagging lost ranking; say "did not transfer to IoT capture shift" |
+| Ha & Kim's zero-day false-alarm inflation comes from unseen attacks | do not repeat | Their Table S2: seen-test and OOD FPR identical in every row (shared benign test traffic); cite as benign validation-to-test drift |
+| Tiny models' false alarms under shift (row 28ac) | CLAIM | "Tiny MLPs overshot the budget less than trees on CICIoMT and IoT-23 same-family (1.7–12.5% vs 7.5–36.9%) but more on real home traffic (17–19% vs 3%); commissioning on 1,000 flows brings all to ~1%." Distillation vs scratch n.s. |
+| Live detect-and-block works (row 28am) | QUALIFY | "In Mininet, an IoT-23-trained Zeek detector flagged no attack flows at its lab threshold; with a 60 s commissioned threshold it caught the scan (1,999/2,000 flows) with no benign host blocked but never flagged the floods (live lost-ranking regime)." Guarded mode (row 28ap): "adding the label-free score-shift warning and a rate fallback learned in the same 60 s window blocked the SYN flood in 2.0 s (92% of its packets dropped), the UDP flood in 3.6 s (82%) and a 10 pkt/s probe in 3.6 s (89%), with no benign host blocked" — one emulated run, synthetic benign traffic |
 
 ## Edge model
 
@@ -63,6 +74,19 @@ Status key: **CLAIM** = supported, may be stated; **QUALIFY** = state only with 
 | SHAP loss gives more faithful explanations | QUALIFY | Re-test with tasks as units; minor result; SHAP+KD exists |
 | SHAP-guided KD is our contribution | DROP | Null accuracy effect; prior art (arXiv 2512.19488) |
 
+## Placement (P2)
+
+| Statement | Status | Wording / reason |
+|---|---|---|
+| Controller capacity depends on the deployed detector | CLAIM | Measured single-core throughput: student 6.0M flows/s, teacher 48k; Geant at load 0.9 needs 3 vs 7 controllers (M/M/1 model) |
+| Escalation rises under traffic shift (row 28ad) | CLAIM | 10% validation budget -> 9.9% (no shift), 10–17% (CICIoMT), 0.1–34% (IoT-23 captures) |
+| A placement sized for the planned escalation breaks under shift (rows 28ad, 28ak) | CLAIM | Our objective: SLA lost at 16–17% in 8/9 (topology, load) cases, +1..+12 controllers needed. Published FFCCP model (exact ILP): all 3 networks overflow at 16% (utilisation 1.17–1.48); controllers needed at 16/27/34%: AT&T 3/4/5, GEANT 5/8/9, SURFNET 5/9/11 vs 2/3/4 |
+| Capping escalation at the planned share costs no accuracy under shift | CLAIM | -1.5 to +0.2 macro-F1 (label-free test-entropy quantile cap); the expert is no better than the student under shift |
+| Cloud saturates at shift-level escalation (E6, Mininet) | CLAIM, emulated | 2 ms cloud collapses at 57% escalation already at 1k flows/s (p50 386 ms, 11% unreturned); about 5.7x capacity needed; Python gateway, emulated cloud compute |
+| EHO-ACO is the best placement method | QUALIFY | Faithful Killi & Rao FFCCP, 42 proved instances: optimum hit in 99.0% of runs (GWO+SA 96.7%, PSO-SA 98.6%); per instance ties GWO+SA (2/2/39). Large networks: best mean rank (17.9 vs 26.4 GWO+SA; better on 7 of 12 settings, p = 0.12, n.s.); significantly better than PSO-SA and GA (12/12, p < 0.001). Our own objective: GWO+SA better (gap 0.30% vs 1.65%). Say "most reliable on the published model, not significantly better than GWO+SA" |
+| Metaheuristics are needed | CLAIM | Time-limited exact MILP incumbents 2–3x worse on Cogentco-scale instances; but small Topology Zoo instances are solved exactly in seconds and even random search often reaches the optimum |
+| Our FFCCP numbers reproduce Killi & Rao's | QUALIFY | Same model, networks, load range and capacity; minimum controller counts match; loads are random (as in theirs) and GEANT has 37 distinct sites, so latencies are comparable in range and shape only |
+
 ## Limitations to state in the paper
 
 1. CICIoT2023 CSVs have no capture IDs; near-duplicates within a capture can cross splits (applies to all published results).
@@ -70,6 +94,8 @@ Status key: **CLAIM** = supported, may be stated; **QUALIFY** = state only with 
 3. Test sets were inspected during development; the fresh holdout (E5) gives 73.59 vs 73.22 on the old test for the base ensemble.
 4. Tree/ensemble seed replicates on CICIoMT added late (43_tree_seeds.py); IoT-23 trees have 5 seeds.
 4b. CICIoT2023 real-traffic evaluation (E7) is infeasible in the Kaggle 46-feature space: per the dataset paper (Table 4) several features are flow-level ratios/products averaged over 10/100-packet windows (e.g. Variance = ratio of incoming to outgoing variance), and the available 39-column extractor does not compute them; lab vs real benign windows are perfectly separable (AUC 1.0). Real-home traffic is evaluated in the Zeek space instead.
-5. Network results are queueing-model based until the Mininet/Ryu run.
-6. No IoT hardware latency or energy measurement.
+5. Placement results are model-based (M/M/1 or FFCCP capacity); Mininet (E6, E7b) covers the cascade and detect-and-block with a Python gateway and emulated cloud compute, not production hardware.
+6. No IoT hardware latency or energy measurement (planned: Raspberry Pi test).
 7. Placement (EHO–ACO) is out of scope for P1; GWO+SA is published prior art.
+8. The regime-check warning rests on 18 settings from 3 dataset families; 9 of 16 IoT-23 LOCO captures were unusable after de-duplication.
+9. Mohanty & Sahoo (2024) full text unavailable; their method family is covered by our PSO-SA implementation on the same published model, not by their code or numbers.
