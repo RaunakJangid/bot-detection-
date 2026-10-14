@@ -163,6 +163,7 @@ def main():
     a = parser(__doc__, datasets=False)
     a.add_argument("--part", choices=["shift", "psosa", "large"], required=True)
     a.add_argument("--workers", type=int, default=12)
+    a.add_argument("--runs", type=int, default=kr.RUNS, help="seeds per (setting, method) for --part large")
     args = a.parse_args()
     P = Paths(False)
     od = P.v3 / "killi_rao"; od.mkdir(parents=True, exist_ok=True)
@@ -181,7 +182,7 @@ def main():
             D, L = kr.instance(name, P)
             pmin = max(2, math.ceil(2 * L.sum() / kr.U))
             log.info("%s: %d sites, load %.0f, p %d..%d", name, len(D), L.sum(), pmin, pmin + 5)
-            tasks += [(name, 2, p, alg, s) for p in range(pmin, pmin + 6) for alg in ALGS for s in range(kr.RUNS)]
+            tasks += [(name, 2, p, alg, s) for p in range(pmin, pmin + 6) for alg in ALGS for s in range(args.runs)]
         pool_run(tasks, od / "large_runs.jsonl", args.workers)
 
 
