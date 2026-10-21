@@ -1,0 +1,11 @@
+,val_escalated,val_escalated,val_f1,val_f1,test_escalated,test_escalated,test_f1_planned,test_f1_planned,test_f1_capped,test_f1_capped
+,mean,std,mean,std,mean,std,mean,std,mean,std
+setting,,,,,,,,,,
+ciciomt_attack,9.999,0.112,78.478,0.497,16.511,0.477,69.333,0.397,69.451,0.448
+ciciomt_binary,9.998,0.071,97.905,0.081,10.159,0.335,97.675,0.0,97.676,0.0
+ciciomt_category,9.999,0.084,87.337,0.286,16.079,0.686,81.103,0.677,81.149,0.712
+ciciot_class34,10.001,0.066,66.885,0.684,9.868,0.027,66.781,0.022,66.786,0.02
+iot23_capture_shift_CTU-IoT-Malware-Capture-1-1,9.974,0.925,97.497,0.523,27.003,0.783,58.92,0.021,58.916,0.017
+iot23_capture_shift_CTU-IoT-Malware-Capture-35-1,9.974,0.925,97.497,0.523,0.831,1.021,5.199,0.0,5.199,0.0
+iot23_same_family_CTU-IoT-Malware-Capture-49-1,10.006,0.457,99.067,0.084,33.681,1.456,57.239,0.147,59.944,3.409
+iot23_same_family_CTU-IoT-Malware-Capture-7-1,10.006,0.457,99.067,0.084,5.093,0.118,13.012,0.024,13.035,0.0
