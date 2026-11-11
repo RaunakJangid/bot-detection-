@@ -1,10 +1,11 @@
 # Edit these on each machine. Relative paths resolve against the project root.
-ciciot_zip: "C:/Users/rauna/Downloads/archive (5).zip"
-botiot_zip: "C:/Users/rauna/Downloads/archive (6).zip"
-ciciomt_zip: "C:/Users/rauna/Downloads/shield_datasets/ciciomt2024.zip"
-data_dir: data
-outputs_dir: outputs
+ciciot_zip: "D:/bot-datasets/archive (1).zip"
+botiot_zip: "D:/bot-datasets/archive.zip"
+ciciomt_zip: "C:/Users/Prakash/Downloads/ciciomt2024.zip"
+data_dir: "D:/shield_run/data"
+outputs_dir: "D:/shield_run/outputs_v2"
 
 smoke:
   data_dir: data_smoke
   outputs_dir: outputs_smoke
+ciciot_full: "C:/Users/Prakash/Downloads/archive (2).zip"

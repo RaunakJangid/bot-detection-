@@ -53,7 +53,7 @@ dataset_overrides:
   botiot:
     balance_power: 0.5
     samples_per_epoch: 8000000
-jobs: 3                   # concurrent student runs on the GPU
+jobs: 2                   # concurrent student runs on the GPU
 mi_sample: 50000
 # Student-vs-teacher SHAP ranking agreement. Only computed for these seeds (it compares rankings,
 # so one seed per variant is enough), on a stratified subset of the teacher's explained rows.
